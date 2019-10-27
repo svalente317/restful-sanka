@@ -1,0 +1,108 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+/**
+ * Class defines http protocol constants defined in RFC 2616.
+ */
+class Http {
+    const RFC822_FORMAT = "%a, %d %b %Y %T %z";
+    const VERSION = "HTTP/1.1";
+
+    const OPTIONS = "OPTIONS";
+    const GET = "GET";
+    const HEAD = "HEAD";
+    const POST = "POST";
+    const PUT = "PUT";
+    const DELETE = "DELETE";
+    const TRACE = "TRACE";
+    const CONNECT = "CONNECT";
+
+    // Accept
+    // Accept-Charset
+    // Accept-Encoding
+    // Accept-Language
+    // Accept-Ranges
+    // Age
+    // Allow
+    // Authorization
+    // Cache-Control
+    // Connection
+    // Content-Encoding
+    // Content-Language
+    const CONTENT_LENGTH = "Content-Length";
+    // Content-Location
+    // Content-MD5
+    // Content-Range
+    // Content-Type
+    const DATE = "Date";
+    // ETag
+    // Expect
+    // Expires
+    // From
+    // Host
+    // If-Match
+    // If-Modified-Since
+    // If-None-Match
+    // If-Range
+    // If-Unmodified-Since
+    // Last-Modified
+    // Location
+    // Max-Forwards
+    // Pragma
+    // Proxy-Authenticate
+    // Proxy-Authorization
+    // Range
+    // Referer
+    // Retry-After
+    // Server
+    // TE
+    // Trailer
+    // Transfer-Encoding
+    // Upgrade
+    // User-Agent
+    // Vary
+    // Via
+    // Warning
+    // WWW-Authenticate
+
+    // Continue = 100;
+    // Switching Protocols = 101;
+    const OK = 200;
+    // Created = 201;
+    // Accepted = 202;
+    // Non-Authoritative Information = 203;
+    // No Content = 204;
+    // Reset Content = 205;
+    // Partial Content = 206;
+    // Multiple Choices = 300;
+    // Moved Permanently = 301;
+    // Found = 302;
+    // See Other = 303;
+    // Not Modified = 304;
+    // Use Proxy = 305;
+    // Temporary Redirect = 307;
+    const BAD_REQUEST = 400;
+    const UNAUTHORIZED = 401;
+    const PAYMENT_REQUIRED = 402;
+    const FORBIDDEN = 403;
+    const NOT_FOUND = 404;
+    const METHOD_NOT_ALLOWED = 405;
+    // Not Acceptable = 406;
+    // Proxy Authentication Required = 407;
+    // Request Timeout = 408;
+    // Conflict = 409;
+    // Gone = 410;
+    // Length Required = 411;
+    // Precondition Failed = 412;
+    // Request Entity Too Large = 413;
+    // Request-URI Too Long = 414;
+    // Unsupported Media Type = 415;
+    // Requested Range Not Satisfiable = 416;
+    // Expectation Failed = 417;
+    const INTERNAL_SERVER_ERROR = 500;
+    const NOT_IMPLEMENTED = 501;
+    const BAD_GATEWAY = 502;
+    const SERVICE_UNAVAILABLE = 503;
+    const GATEWAY_TIMEOUT = 504;
+    const HTTP_VERSION_NOT_SUPPORTED = 505;
+}

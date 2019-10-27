@@ -1,0 +1,192 @@
+// -*- mode: Java; -*-
+package sanka.sqlite3;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+
+/**
+ * SQLite3 Prepared Statement
+ *
+ * This does not (yet?) support storing raw data in the database.
+ * All strings that are inserted as values, and that are returned as values,
+ * must be valid UTF-8 text strings.
+ *
+ * Also, support for 64-bit integers is limited.
+ *
+ * Note that while a Database object can be used in multiple threads,
+ * a Statement object should live only in a single thread.
+ */
+class Statement {
+    c__include "sqlite3.h";
+
+    const OK = 0;
+    const ERROR = 1;
+    const BUSY = 5;
+    const CONSTRAINT_VIOLATION = 19;
+    const MISUSE = 21;
+    const ROW = 100;
+    const DONE = 101;
+
+    const TYPE_INTEGER = 1;
+    const TYPE_FLOAT = 2;
+    const TYPE_TEXT = 3;
+    const TYPE_BLOB = 4;
+    const TYPE_NULL = 5;
+
+    c__field "sqlite3_stmt *statement";
+    private int status;
+
+    int step() {
+        c__stmt "return sqlite3_step(this->statement)";
+    }
+
+    int columnCount() {
+        c__stmt "return sqlite3_column_count(this->statement)";
+    }
+
+    int columnInt(int iCol) {
+        c__stmt "return sqlite3_column_int(this->statement, iCol)";
+    }
+
+    double columnDouble(int iCol) {
+        c__stmt "return sqlite3_column_double(this->statement, iCol)";
+    }
+
+    String columnText(int iCol) {
+        c__stmt "return STRING_SUBSTRING(sqlite3_column_text(this->statement, iCol), 0, 0)";
+    }
+
+    String columnName(int iCol) {
+        c__stmt "return STRING_SUBSTRING(sqlite3_column_name(this->statement, iCol), 0, 0)";
+    }
+
+    int columnType(int iCol) {
+        c__stmt "return sqlite3_column_type(this->statement, iCol)";
+    }
+
+    JsonElement columnJsonElement(int iCol) {
+        var element = new JsonElement();
+        switch (columnType(iCol)) {
+        case TYPE_NULL:
+            break;
+        case TYPE_INTEGER:
+            element.makeInt(columnInt(iCol));
+            break;
+        case TYPE_FLOAT:
+            element.makeDouble(columnDouble(iCol));
+            break;
+        default:
+            element.makeString(columnText(iCol));
+            break;
+        }
+        return element;
+    }
+
+    /**
+     * Return the next row as an array of the text representations of the
+     * values.
+     *
+     * @return array of strings such that arr[0] is the first selected column,
+     *         or null if there is no more data, or if an error occurred.
+     */
+    String[] nextRow() {
+        this.status = step();
+        if (this.status != ROW) {
+            return null;
+        }
+        var count = columnCount();
+        if (count == 0) {
+            return null;
+        }
+        var row = new String[count];
+        for (var idx = 0; idx < count; idx++) {
+            row[idx] = columnText(idx);
+        }
+        return row;
+    }
+
+    /**
+     * Return the next row as an array Json elements. Each element is a
+     * scalar value -- a string, integer, or double.
+     *
+     * @return array of elements such that arr[0] is the first selected column,
+     *         or null if there is no more data, or if an error occurred.
+     */
+    JsonElement[] nextRowJsonArray() {
+        this.status = step();
+        if (this.status != ROW) {
+            return null;
+        }
+        var count = columnCount();
+        if (count == 0) {
+            return null;
+        }
+        var row = new JsonElement[count];
+        for (var idx = 0; idx < count; idx++) {
+            row[idx] = columnJsonElement(idx);
+        }
+        return row;
+    }
+    
+    /**
+     * Return the next row as a JsonObject. This assumes that the statement
+     * was constructed such that each column has a distinct name which is
+     * a valid Json field name.
+     *
+     * @return JsonObject with row fields and values, or null if there is
+     *         no more data, or if an error occurred.
+     */
+    JsonObject nextRowJsonObject() {
+        this.status = step();
+        if (this.status != ROW) {
+            return null;
+        }
+        var count = columnCount();
+        if (count == 0) {
+            return null;
+        }
+        var row = new JsonObject();
+        for (var idx = 0; idx < count; idx++) {
+            var fieldName = columnName(idx);
+            if (fieldName != null) {
+                row.set(fieldName, columnJsonElement(idx));
+            }
+        }
+        return row;
+    }
+
+    /**
+     * @return the reason that the last call to nextRow*() returned null
+     */
+    int getStatus() {
+        return this.status;
+    }
+
+    /**
+     * Delete prepared statement. This can be called at any time during the
+     * life cycle of the statement.
+     */
+    int finalize() {
+        var status = 0;
+        c__stmt "status = sqlite3_finalize(this->statement)";
+        c__stmt "this->statement = NULL";
+        return status;
+    }
+
+    /*
+     * Functions for binding values into statements,
+     * such as the "values" clause of an INSERT statement,
+     * or the "where" clause of a SELECT statement.
+     */
+
+    int bindInt(int iCol, int value) {
+        c__stmt "return sqlite3_bind_int(this->statement, iCol, value)";
+    }
+
+    int bindDouble(int iCol, double value) {
+        c__stmt "return sqlite3_bind_double(this->statement, iCol, value)";
+    }
+
+    int bindText(int iCol, String value) {
+        c__stmt "return sqlite3_bind_text(this->statement, iCol, value, -1, NULL)";
+    }
+}

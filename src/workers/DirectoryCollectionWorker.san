@@ -1,0 +1,97 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.io.File;
+import sanka.io.FileReader;
+import sanka.io.FileStats;
+import sanka.rest.BaseRestWorker;
+import sanka.rest.RestOperation;
+
+/**
+ * Register a DirectoryCollectionWorker to expose the files that are
+ * directly in a single directory.
+ */
+class DirectoryCollectionWorker {
+    private BaseRestWorker base;
+    private File directory;
+    export base;
+
+    DirectoryCollectionWorker(String directory) {
+        this.base = new BaseRestWorker();
+        this.directory = new File(directory);
+    }
+
+    boolean isCollection() {
+        return true;
+    }
+
+    void onGet(RestOperation op) {
+        if (op.key != null) {
+            onGetFile(op);
+            return;
+        }
+        var filenames = this.directory.list();
+        if (filenames == null) {
+            op.setErrorBody(this.directory.getPath() + ": no such directory");
+            return;
+        }
+        System.sort(filenames);
+        var html = "<html>\r\n" +
+            "<head><title>Index of " + this.directory.getPath() +
+            "</title></head>\r\n" +
+            "<body>\r\n" +
+            "<h1>Index of " + this.directory.getPath() + "</h1>\r\n" +
+            "<table>\r\n" +
+            "<tr><th>Name</th><th>Last modified</th><th>Size</th></tr>\r\n" +
+            "<tr><th colspan=\"3\"><hr></th></tr>\r\n";
+        for (var name : filenames) {
+            var file = new File(this.directory, name);
+            var stats = new FileStats();
+            if (file.getStats(stats, true) != 0) {
+                continue;
+            }
+            var size = "-";
+            if (stats.isFile) {
+                name = "<a href=\"" + op.path + "/" + name + "\">" +
+                    name + "</a>";
+                size = "" + stats.length;
+            }
+            var date = "-";
+            if (stats.lastModified > 0) {
+                date = System.formatTime("%F %T %Z", stats.lastModified, true);
+            }
+            html = html + "<tr><td>" + name + "</td>" +
+                "<td align=\"right\">" + date + "</td>" +
+                "<td align=\"right\">" + size + "</td>\r\n";
+        }
+        html = html + "<tr><th colspan=\"3\"><hr></th></tr>\r\n";
+        html = html + "</table></body></html>\r\n";
+        op.setRawBody(html.toByteArray());
+    }
+
+    private void onGetFile(RestOperation op) {
+        var file = new File(this.directory, op.key);
+        var stats = new FileStats();
+        var errno = file.getStats(stats, true);
+        if (errno != 0) {
+            op.setErrorBody(file.toString() + ": " + System.strerror(errno));
+            return;
+        }
+        var reader = new FileReader();
+        errno = reader.open(file.getPath());
+        if (errno != 0) {
+            op.setErrorBody(file.toString() + ": " + System.strerror(errno));
+            return;
+        }
+        var buffer = new byte[stats.length];
+        var size = reader.read(buffer);
+        reader.close();
+        if (size < 0) {
+            op.setErrorBody(file.toString() + ": read failure");
+            return;
+        }
+        if (size < buffer.length) {
+            buffer.setLength(size);
+        }
+        op.setRawBody(buffer);
+    }
+}

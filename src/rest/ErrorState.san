@@ -1,0 +1,6 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+
+serializable class ErrorState {
+    String error;
+}

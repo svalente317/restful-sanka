@@ -1,0 +1,104 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.json.Serializable;
+import sanka.http.Http;
+import sanka.lang.Object;
+
+/**
+ * RestOperation represents an operation while it is being processed by a
+ * worker. It is initialized with the input parameters to the operation,
+ * and the worker fills-in the output results.
+ *
+ * Although RestOperation uses http method names and status codes, it is
+ * not tied to http. There are several ways to tell a RestWorker to process
+ * a RestOperation. The input parameters were not necessarily encoded in an
+ * http request, and the output results will not necessarily be encoded in
+ * an http response.
+ *
+ * Typical usage of the RestOperation body:
+ *
+ * 1. When a RestWorker sends a request in-process to another RestWorker,
+ *    the calling worker will build the request body in a serializable
+ *    object and call setBody(). The called worker will call parseBody() to
+ *    get the body in a serializable object, almost always of the same type.
+ *    In this case, the body is serialized (to Json) and then de-serialized.
+ *    This ensures that the workers operate independently. They don't share
+ *    memory. Either one can modify its copy of the request body without
+ *    the change being seen by the other.
+ *
+ * 2. When the server receives an http request, it calls setRawBody()
+ *    with the bytes that it received.
+ *    And after a worker completes its work, the server calls getBody()
+ *    to get the bytes that it must send.
+ */
+class RestOperation {
+    String authUser;
+    String method;
+    String path;
+    String key;
+    String query;
+    private byte[] body;
+    private JsonObject jsonBody;
+    int status;
+
+    boolean success() {
+        return this.status == Http.OK;
+    }
+
+    void setRawBody(byte[] body) {
+        this.body = body;
+        this.jsonBody = null;
+    }
+
+    void setBody(Serializable serialBody) {
+        setJsonBody(serialBody.toJson());
+    }
+
+    void setErrorBody(String error) {
+        this.status = Http.BAD_REQUEST;
+        var state = new ErrorState();
+        state.error = error;
+        setBody(state);
+    }
+
+    void setFrom(RestOperation subOp) {
+        this.status = subOp.status;
+        setRawBody(subOp.getBody());
+    }
+
+    byte[] getBody() {
+        if (this.body == null && this.jsonBody != null) {
+            this.body = this.jsonBody.toString().toByteArray();
+        }
+        return this.body;
+    }
+
+    boolean parseBody(Serializable object) {
+        if (getJsonBody() == null) {
+            return false;
+        }
+        object.fromJson(this.jsonBody);
+        return true;
+    }
+
+    /**
+     * setJsonBody() and getJsonBody() support CollectionWorker.
+     * They are infrastructure-only. You probably don't want to use them.
+     */
+    void setJsonBody(JsonObject jsonBody) {
+        this.body = null;
+        this.jsonBody = jsonBody;
+    }
+
+    JsonObject getJsonBody() {
+        if (this.jsonBody == null && this.body != null) {
+            var element = JsonElement.parse(new String(this.body));
+            if (element != null) {
+                this.jsonBody = element.getAsObject();
+            }
+        }
+        return this.jsonBody;
+    }
+}

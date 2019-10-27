@@ -1,0 +1,34 @@
+// -*- mode: Java; -*-
+package sanka.http;
+import sanka.lang.Thread;
+import sanka.net.Socket;
+
+/**
+ * Class to use the main thread to accept incoming http connections,
+ * and start new threads to process and respond to requests.
+ */
+class Server {
+    void listen(int port, HttpProcessor processor) {
+        var socket = new Socket();
+        var status = socket.bind(port);
+        if (status != 0) {
+            System.println("bind " + port + ": " + System.strerror(status));
+            return;
+        }
+        status = socket.listen(8);
+        if (status != 0) {
+            System.println("listen: " + System.strerror(status));
+            return;
+        }
+        while (true) {
+            var connection = socket.accept();
+            if (connection == null) {
+                System.println("accept: done");
+                break;
+            }
+            var runnable = new ServerThread(connection, processor);
+            new Thread(runnable);
+        }
+        socket.close();
+    }
+}

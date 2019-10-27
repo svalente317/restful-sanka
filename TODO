@@ -1,0 +1,6 @@
+* Server.san - use thread pool
+* translate status code to reason text
+* HttpRequest.san - support repeated header
+* Add any more response headers?
+* support multipart encoding
+* support chunked transfer

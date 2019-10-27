@@ -1,0 +1,75 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.rest.RestProcessor;
+import sanka.http.Server;
+import sanka.sqlite3.Database;
+
+/**
+ * Start a REST server listening on port 8888.
+ * Register EchoWorker and ReverseWorker.
+ *
+ * -p port
+ * -x directory: export local directory as /export
+ * -d database: run database worker. Store DB in specified file.
+ */
+class RestfulSanka {
+    const USAGE = "Usage: restful-server [-p port] [-x export] [-d database]";
+
+    static int main(String[] argv) {
+        var port = 8888;
+        var exportDir = null;
+        var dbFile = null;
+        var error = false;
+        for (var idx = 1; idx < argv.length; idx++) {
+            switch (argv[idx]) {
+            case "-p":
+                idx++;
+                port = System.l2i(System.parseLong(argv[idx]));
+                break;
+            case "-x":
+                idx++;
+                exportDir = argv[idx];
+                break;
+            case "-d":
+                idx++;
+                dbFile = argv[idx];
+                break;
+            default:
+                error = true;
+                break;
+            }
+        }
+        if (error) {
+            System.println(USAGE);
+            return -1;
+        }
+        var database = null;
+        if (dbFile != null) {
+            database = new Database(dbFile);
+            var status = database.getStatus();
+            if (status != 0) {
+                System.println(dbFile + ": sqlite3 status " + status);
+            } else {
+                Globals.setDatabase(database);
+            }
+        }
+        var processor = new RestProcessor();
+        processor.register(EchoWorker.WORKER_PATH, new EchoWorker());
+        processor.register(ReverseWorker.WORKER_PATH, new ReverseWorker());
+        if (exportDir != null) {
+            var workerPath = "/export";
+            var worker = new DirectoryCollectionWorker(exportDir);
+            processor.register(workerPath, worker);
+        }
+        if (database != null) {
+            processor.register(UserCollectionWorker.WORKER_PATH,
+                               new UserCollectionWorker());
+        }
+        var server = new Server();
+        server.listen(port, processor);
+        if (database != null) {
+            database.close();
+        }
+        return 0;
+    }
+}

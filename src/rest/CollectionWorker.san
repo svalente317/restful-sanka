@@ -1,0 +1,215 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.json.Serializable;
+import sanka.rest.BaseRestWorker;
+import sanka.rest.RestOperation;
+
+/**
+ * CollectionWorker provides the infrastructure to manage a collection of
+ * REST resources.
+ *
+ * The class hierarchy is:
+ * RestWorker -> BaseRestWorker -> CollectionWorker -> [your worker]
+ */
+class CollectionWorker {
+    private BaseRestWorker base;
+    export base;
+    private String tableName;
+    private String primaryKeyField;
+    private boolean generatePrimaryKey;
+    private PostValidator validator;
+
+    boolean isCollection() {
+        return true;
+    }
+
+    CollectionWorker(String tableName, String primaryKeyField,
+        boolean generatePrimaryKey, PostValidator validator) {
+        this.base = new BaseRestWorker();
+        this.tableName = tableName;
+        this.primaryKeyField = primaryKeyField;
+        this.generatePrimaryKey = generatePrimaryKey;
+        this.validator = validator;
+    }
+
+    /**
+     * To create a new resource, post to the collection.
+     * To update an existing resource, post to [collection]/[key].
+     */
+    void onPost(RestOperation op) {
+        if (op.key != null) {
+            onPostResource(op);
+            return;
+        }
+        var row = op.getJsonBody();
+        if (row == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        if (this.generatePrimaryKey) {
+            // Do not allow user to specify id.
+            // The database will generate a unique id.
+            row.remove(this.primaryKeyField);
+        } else {
+            // The primary key must be non-null.
+            // Specific workers may impose other requirements as well.
+            if (row.get(this.primaryKeyField) == null) {
+                op.setErrorBody("missing field: " + this.primaryKeyField);
+                return;
+            }
+        }
+        // Do not allow user to specify generation.
+        // Resources are created at generation 1.
+        row.setInt("generation", 1);
+
+        if (this.validator != null) {
+            var error = this.validator.validatePost(op, row, null);
+            if (error != null) {
+                op.setErrorBody(error);
+                return;
+            }
+        }
+        var status = Globals.getDatabase().insertRow(this.tableName, row);
+        if (status != 0) {
+            op.setErrorBody("post failed: db status " + status);
+            return;
+        }
+        if (this.generatePrimaryKey) {
+            var id = Globals.getDatabase().getLastInsertRowId();
+            row.setInt(this.primaryKeyField, System.l2i(id));
+        }
+        op.setJsonBody(row);
+    }
+
+    /**
+     * Update a resource by its primary key.
+     */
+    void onPostResource(RestOperation op) {
+        var newRow = op.getJsonBody();
+        if (newRow == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+
+        // Get the current state of the specified resource.
+        // This could be implemented using send(RestMethod.GET).
+        var sql = "select * from " + this.tableName + " where " +
+            this.primaryKeyField + " = ?";
+        var statement = Globals.getDatabase().prepare(sql);
+        if (statement == null) {
+            op.setErrorBody("database failed with status " +
+                Globals.getDatabase().getStatus());
+            return;
+        }
+        statement.bindText(1, op.key);
+        var oldRow = statement.nextRowJsonObject();
+        statement.finalize();
+        if (oldRow == null) {
+            op.setErrorBody("resource " + op.key + " not found");
+            return;
+        }
+
+        // Validate and update the generation.
+        var newGeneration = newRow.getAsInt("generation");
+        var oldGeneration = oldRow.getAsInt("generation");
+        if ((newGeneration != 0) && (newGeneration != oldGeneration)) {
+            op.setErrorBody("invalid generation");
+            return;
+        }
+        newRow.setInt("generation", oldGeneration+1);
+
+        // Primary key does not need to be specified in the body, since
+        // it is specified in the URL. And it cannot be changed.
+        newRow.set(this.primaryKeyField, oldRow.get(this.primaryKeyField));
+
+        if (this.validator != null) {
+            var error = this.validator.validatePost(op, newRow, oldRow);
+            if (error != null) {
+                op.setErrorBody(error);
+                return;
+            }
+        }
+        var status = Globals.getDatabase().updateRow(
+            this.tableName, this.primaryKeyField, newRow);
+        if (status != 0) {
+            op.setErrorBody("update failed: db status " + status);
+            return;
+        }
+        op.setJsonBody(newRow);
+    }
+    
+    /**
+     * To get the whole collection, get to the collection.
+     * To get a single resource, get [collection]/[key].
+     */
+    void onGet(RestOperation op) {
+        if (op.key != null) {
+            onGetResource(op);
+            return;
+        }
+        var sql = "select * from " + this.tableName;
+        var statement = Globals.getDatabase().prepare(sql);
+        var body = "{\"items\":[";
+        var comma = "";
+        while (true) {
+            var obj = statement.nextRowJsonObject();
+            if (obj == null) {
+                break;
+            }
+            body = body + comma + obj.toString();
+            comma = ",";
+        }
+        body = body + "]}";
+        op.setRawBody(body.toByteArray());
+    }
+
+    /**
+     * Get a resource by its primary key.
+     */
+    void onGetResource(RestOperation op) {
+        var sql = "select * from " + this.tableName + " where " +
+            this.primaryKeyField + " = ?";
+        var statement = Globals.getDatabase().prepare(sql);
+        if (statement == null) {
+            op.setErrorBody("database failed with status " +
+                Globals.getDatabase().getStatus());
+            return;
+        }
+        statement.bindText(1, op.key);
+        var row = statement.nextRowJsonObject();
+        statement.finalize();
+        if (row == null) {
+            op.setErrorBody("resource " + op.key + " not found");
+            return;
+        }
+        op.setJsonBody(row);
+    }
+
+    /**
+     * TODO. Implement onDelete().
+     */
+    void onDelete(RestOperation op) {
+        op.setErrorBody("not implemented");
+    }
+}
+
+/**
+ * Abstract CollectionWorker methods.
+ *
+ * Maybe I should enhance the Sanka language and compiler to better support
+ * this kind of thing.
+ */
+interface PostValidator {
+    /**
+     * Validate the given new resource. This may modify the resource
+     * state (normalize fields, etc).
+     *
+     * If the post request should be aborted, then return an error
+     * string to be sent back to the caller.
+     *
+     * If the post should be continued, then return null.
+     */
+    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow);
+}

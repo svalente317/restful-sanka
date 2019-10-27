@@ -1,0 +1,14 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+class HttpRequest {
+    String method;
+    String uri;
+    String httpVersion;
+    String[String] headers;
+    byte[] body;
+
+    HttpRequest() {
+        this.headers = new String[class String];
+    }
+}

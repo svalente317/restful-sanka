@@ -1,0 +1,82 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.http.Http;
+import sanka.http.HttpParser;
+import sanka.http.HttpRequest;
+import sanka.http.HttpResponse;
+import sanka.http.URL;
+
+/**
+ * RestProcessor is basically a registrar. Initially, you tell it which
+ * RestWorkers service which namespaces. Then, the various subsystems,
+ * including the http server, tell it to tell the appropriate RestWorker
+ * to process a RestOperation.
+ */
+class RestProcessor {
+    private RestWorker[String] workerMap;
+
+    RestProcessor() {
+        this.workerMap = new RestWorker[class String];
+    }
+
+    void register(String path, RestWorker worker) {
+        worker.setRestProcessor(this);
+        this.workerMap[path] = worker;
+    }
+
+    void process(HttpRequest request, HttpResponse response) {
+        var url = new URL().setRequestUri(request.uri);
+        var op = new RestOperation();
+        op.method = request.method;
+        op.path = url.path;
+        op.query = url.query;
+        op.setRawBody(request.body);
+        processOperation(op);
+        response.status = op.status;
+        response.body = op.getBody();
+    }
+
+    void processOperation(RestOperation op) {
+        var path = op.path;
+        var worker = this.workerMap[path];
+        if (worker == null) {
+            var idx = path.lastIndexOf('/');
+            if (idx > 0) {
+                var parentPath = path.substring(0, idx);
+                var key = path.substring(idx+1, 0);
+                worker = this.workerMap[parentPath];
+                if (worker != null) {
+                    if (worker.isCollection()) {
+                        op.key = key;
+                    } else {
+                        worker = null;
+                    }
+                }
+            }
+        }
+        if (worker == null) {
+            // Should sanitize path. Remove characters other then
+            // alphanumerics and slash.
+            op.setErrorBody("path not found: " + path);
+            op.status = Http.NOT_FOUND;
+            return;
+        }
+        op.status = Http.OK;
+        switch (op.method) {
+        case Http.GET:
+            worker.onGet(op);
+            break;
+        case Http.POST:
+            worker.onPost(op);
+            break;
+        case Http.DELETE:
+            worker.onDelete(op);
+            break;
+        default:
+            // Should sanitize method.
+            op.setErrorBody("invalid method: " + op.method);
+            op.status = Http.METHOD_NOT_ALLOWED;
+            break;
+        }
+    }
+}

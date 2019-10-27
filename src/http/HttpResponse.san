@@ -1,0 +1,12 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+class HttpResponse {
+    int status;
+    String[String] headers;
+    byte[] body;
+
+    HttpResponse() {
+        this.headers = new String[class String];
+    }
+}

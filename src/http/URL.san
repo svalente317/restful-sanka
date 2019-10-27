@@ -1,0 +1,39 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+class URL {
+    String url;
+    String scheme;
+    String hostname;
+    int port;
+    String path;
+    String query;
+    String fragment;
+
+    /**
+     * From an HTTP request like GET /path?query#fragment
+     * parse the URI into path, query, and fragment.
+     */
+    URL setRequestUri(String uri) {
+        var idx = uri.indexOf('?');
+        if (idx >= 0) {
+            this.path = uri.substring(0, idx);
+            this.query = uri.substring(idx+1, -1);
+            idx = this.query.indexOf('#');
+            if (idx >= 0) {
+                var text = this.query;
+                this.query = text.substring(0, idx);
+                this.fragment = text.substring(idx+1, -1);
+            }
+        } else {
+            idx = uri.indexOf('#');
+            if (idx >= 0) {
+                this.path = uri.substring(0, idx);
+                this.fragment = uri.substring(idx+1, -1);
+            } else {
+                this.path = uri;
+            }
+        }
+        return this;
+    }
+}

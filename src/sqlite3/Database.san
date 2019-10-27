@@ -1,0 +1,217 @@
+// -*- mode: Java; -*-
+package sanka.sqlite3;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+
+/**
+ * SQLite3 Database connection.
+ */
+class Database {
+    c__include "sqlite3.h";
+    c__field "sqlite3 *database";
+    private int status;
+
+    /**
+     * Open an SQLite database file as specified by the filename argument.
+     * Create the database if the file does not exist.
+     *
+     * If the filename is ":memory:", then a private, temporary in-memory
+     * database is created for the connection. It will vanish when the
+     * database connection is closed.
+     *
+     * If the filename is a regular file, then it must not start with a colon.
+     *
+     * If the filename is an empty string, then a private, temporary on-disk
+     * database will be created. It will be deleted when the database
+     * connection is closed.
+     *
+     * TODO: Support and document URI filenames.
+     * TODO: Support and document flags.
+     */
+    Database(String filename) {
+        c__stmt "this->status = sqlite3_open(filename, &this->database)";
+        if (this.status != 0) {
+            c__stmt "if (this->database != NULL) { sqlite3_close(this->database); this->database = NULL; }";
+        }
+        return;
+    }
+
+    /**
+     * @return the status code of the last create or prepare operation
+     *
+     * Obviously, this method has limited usefulness when this Database
+     * object is used in multiple threads concurrently.
+     */
+    int getStatus() {
+        return this.status;
+    }
+
+    /**
+     * Prepare a single SQL statement to be executed.
+     *
+     * @param sql a single SQL statement (create, insert, select, etc.)
+     *        formatted as UTF-8
+     * @return an object representing a statement that has been byte-code
+     *         compiled and is ready to be executed.
+     *
+     * The caller must call statement.finalize() when it is done with
+     * the returned Statement.
+     *
+     * TODO: What if there is an "unused" portion of the SQL statement?
+     * TODO: Support and document flags.
+     */
+    Statement prepare(String sql) {
+        var statement = new Statement();
+        var status = 0;
+        c__stmt "status = sqlite3_prepare_v2(this->database, sql, -1, &statement->statement, NULL)";
+        if (status != 0) {
+            this.status = status;
+            return null;
+        }
+        return statement;
+    }
+
+    /**
+     * Execute one or more UTF-8 encoded, semicolon-separate SQL statements.
+     * Discard any results.
+     *
+     * @return 0 if the statement executed successfully, or an error code
+     */
+    int execute(String sql) {
+        // TODO What is the errmsg argument?
+        c__stmt "return sqlite3_exec(this->database, sql, NULL, NULL, NULL)";
+    }
+
+    /**
+     * Close the database connection.
+     *
+     * @return 0 if the database was closed, or non-zero if it was busy and
+     *         remains open.
+     */
+    int close() {
+        var status = 0;
+        c__stmt "status = sqlite3_close(this->database)";
+        if (status == 0) {
+            c__stmt "this->database = NULL";
+        }
+        return status;
+    }
+
+    /**
+     * Insert a row into a table.
+     *
+     * For each field in the given object, if the value is a scalar type
+     * (boolean, int, double, or string), then set that field value in the
+     * new row. If the value is an array or an object, then ignore it.
+     */
+    int insertRow(String tableName, JsonObject obj) {
+        var sql = "insert into " + tableName + " (";
+        var qms = "";
+        var comma = "";
+        var values = new JsonElement[0];
+        for (var key, value : obj.getMap()) {
+            if (value == null) {
+                continue;
+            }
+            var t = value.type;
+            if (!(t == JsonElement.BOOLEAN_TYPE ||
+                  t == JsonElement.INT_TYPE ||
+                  t == JsonElement.DOUBLE_TYPE ||
+                  t == JsonElement.STRING_TYPE)) {
+                continue;
+            }
+            sql = sql + comma + key;
+            qms = qms + comma + "?";
+            comma = ",";
+            values.add(value);
+        }
+        sql = sql + ") values (" + qms + ")";
+        var statement = this.prepare(sql);
+        if (statement == null) {
+            return this.status;
+        }
+        var idx = 1;
+        for (var val : values) {
+            switch (val.type) {
+            case JsonElement.BOOLEAN_TYPE:
+                statement.bindInt(idx, val.getAsBoolean() ? 1 : 0);
+                break;
+            case JsonElement.INT_TYPE:
+                statement.bindInt(idx, val.getAsInt());
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                statement.bindDouble(idx, val.getAsDouble());
+                break;
+            case JsonElement.STRING_TYPE:
+                statement.bindText(idx, val.getAsString());
+                break;
+            }
+            idx++;
+        }
+        statement.step();
+        return statement.finalize();
+    }
+
+    /**
+     * Get the primary key that was generated for the last inserted row.
+     * Oddly, there's no thread-safe way to do this. This seems like a
+     * major oversight in sqlite to me.
+     */
+    long getLastInsertRowId() {
+        c__stmt "return sqlite3_last_insert_rowid(this->database)";
+    }
+
+    /**
+     * Update a row in a table.
+     *
+     * For each field in the given object, if the value is a scalar type
+     * (boolean, int, double, or string), then set that field value in the
+     * row. If the value is an array or an object, then ignore it.
+     */
+    int updateRow(String tableName, String keyField, JsonObject obj) {
+        var sql = "update " + tableName + " set ";
+        var comma = "";
+        var values = new JsonElement[0];
+        for (var key, value : obj.getMap()) {
+            if (value == null) {
+                continue;
+            }
+            var t = value.type;
+            if (!(t == JsonElement.BOOLEAN_TYPE ||
+                  t == JsonElement.INT_TYPE ||
+                  t == JsonElement.DOUBLE_TYPE ||
+                  t == JsonElement.STRING_TYPE)) {
+                continue;
+            }
+            sql = sql + comma + key + "=?";
+            comma = ",";
+            values.add(value);
+        }
+        sql = sql + " where " + keyField + "=?";
+        var statement = this.prepare(sql);
+        if (statement == null) {
+            return this.status;
+        }
+        values.add(obj.get(keyField));
+        var idx = 1;
+        for (var val : values) {
+            switch (val.type) {
+            case JsonElement.BOOLEAN_TYPE:
+                statement.bindInt(idx, val.getAsBoolean() ? 1 : 0);
+                break;
+            case JsonElement.INT_TYPE:
+                statement.bindInt(idx, val.getAsInt());
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                statement.bindDouble(idx, val.getAsDouble());
+                break;
+            case JsonElement.STRING_TYPE:
+                statement.bindText(idx, val.getAsString());
+                break;
+            }
+            idx++;
+        }
+        var status = statement.step();
+        return statement.finalize();
+    }
+}

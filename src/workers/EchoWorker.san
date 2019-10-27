@@ -1,0 +1,52 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.rest.BaseRestWorker;
+import sanka.rest.RestOperation;
+
+serializable class EchoWorkerState {
+    String content;
+    int generation;
+}
+
+/**
+ * EchoWorker is a basic RestWorker.
+ *
+ * To process a POST request, it saves the content that was posted.
+ * To process a GET request, it echoes the content that was posted.
+ */
+class EchoWorker {
+    const WORKER_PATH = "/echo";
+
+    private BaseRestWorker base;
+    private EchoWorkerState savedState;
+    export base;
+
+    EchoWorker() {
+        this.base = new BaseRestWorker();
+    }
+
+    void onPost(RestOperation op) {
+        var state = new EchoWorkerState();
+        if (!op.parseBody(state)) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        if (state.content == null) {
+            op.setErrorBody("missing field: content");
+            return;
+        }
+        if (this.savedState == null) {
+            this.savedState = new EchoWorkerState();
+        }
+        this.savedState.content = state.content;
+        this.savedState.generation++;
+    }
+
+    void onGet(RestOperation op) {
+        if (this.savedState == null) {
+            op.setErrorBody("echo state undefined");
+            return;
+        }
+        op.setBody(this.savedState);
+    }
+}

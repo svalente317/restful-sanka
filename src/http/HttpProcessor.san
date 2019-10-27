@@ -1,0 +1,6 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+interface HttpProcessor {
+    void process(HttpRequest request, HttpResponse response);
+}

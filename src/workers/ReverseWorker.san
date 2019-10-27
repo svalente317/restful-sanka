@@ -1,0 +1,51 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.http.Http;
+import sanka.rest.BaseRestWorker;
+import sanka.rest.RestOperation;
+
+/**
+ * ReverseWorker is a basic RestWorker that uses another RestWorker.
+ *
+ * ReverseWorker does a simple transformation of on the data stored by
+ * EchoWorker. To get this data, it does not break any abstraction barriers.
+ * It does not use any private or internal APIs. It does not talk to the
+ * storage system used by EchoWorker.
+ *
+ * ReverseWorker communicates with EchoWorker using EchoWorker's public API,
+ * which is defined entirely by EchoWorker.WORKER_PATH and EchoWorkerState.
+ * This is simple and efficient.
+ */
+class ReverseWorker {
+    const WORKER_PATH = "/reverse";
+
+    private BaseRestWorker base;
+    export base;
+
+    ReverseWorker() {
+        this.base = new BaseRestWorker();
+    }
+
+    void onGet(RestOperation op) {
+        var subOp = send(Http.GET, EchoWorker.WORKER_PATH, null);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        var state = new EchoWorkerState();
+        subOp.parseBody(state);
+        state.content = reverse(state.content);
+        op.setBody(state);
+    }
+
+    private String reverse(String s) {
+        var arr = s.toByteArray();
+        for (var idx = 0; idx < arr.length / 2; idx++) {
+            var tmp = arr[idx];
+            var oth = arr.length-1-idx;
+            arr[idx] = arr[oth];
+            arr[oth] = tmp;
+        }
+        return new String(arr);
+    }
+}

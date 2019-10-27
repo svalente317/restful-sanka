@@ -1,0 +1,10 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+
+interface RestWorker {
+    void setRestProcessor(RestProcessor processor);
+    boolean isCollection();
+    void onGet(RestOperation op);
+    void onPost(RestOperation op);
+    void onDelete(RestOperation op);
+}

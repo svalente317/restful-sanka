@@ -1,0 +1,151 @@
+// -*- mode: Java; -*-
+package sanka.http;
+import sanka.io.LineReader;
+
+/**
+ * Functions to parse incoming http status, headers, and body.
+ */
+class HttpParser {
+    const SEPARATORS = " \t()|<>@,;:/\\[]?={}\"";
+    const WHITESPACE = " \t";
+
+    private LineReader lineReader;
+    private String nextLine;
+
+    HttpParser(LineReader lineReader) {
+        this.lineReader = lineReader;
+    }
+
+    /**
+     * RFC 2616: Request-Line is three tokens separated by single space.
+     *
+     * @return [method, uri, httpVersion]
+     */
+    String[] parseRequestLine() {
+        var line = this.lineReader.readline();
+        if (line == null) {
+            return null;
+        }
+        var lineLength = line.length();
+        var result = new String[3];
+        var idx = 0;
+        var len = getTokenLength(line, idx, SEPARATORS);
+        if (len == idx || len == lineLength) {
+            return null;
+        }
+        result[0] = line.substring(idx, len);
+        idx = len;
+        if (line[idx] != ' ') {
+            return null;
+        }
+        idx++;
+        len = getTokenLength(line, idx, WHITESPACE);
+        if (len == idx || idx+len == lineLength) {
+            return null;
+        }
+        result[1] = line.substring(idx, len);
+        idx = len;
+        if (line[idx] != ' ') {
+            return null;
+        }
+        idx++;
+        len = getTokenLength(line, idx, WHITESPACE);
+        if (len == idx || idx+len < lineLength) {
+            return null;
+        }
+        result[2] = line.substring(idx, len);
+        return result;
+    }
+
+    /**
+     * Count the length of the token starting at line[idx].
+     */
+    private int getTokenLength(String line, int idx, String separators) {
+        var lineLength = line.length();
+        while (idx < lineLength) {
+            var ch = line[idx];
+            if (ch < 32 || ch > 126) {
+                break;
+            }
+            if (separators.indexOf(ch) >= 0) {
+                break;
+            }
+            idx++;
+        }
+        return idx;
+    }
+    
+    /**
+     * Parse the next header. Return [key, value].
+     *
+     * This strips whitespace from the start and end of the value,
+     * so it returns usable values for simple common headers such as
+     * Content-Length and Content-Type.
+     *
+     * This does not squash extra whitespace in the middle of values,
+     * or decode quoted strings, backslashes, etc. All complex value
+     * parsing must be done by the caller.
+     *
+     * The value may be split across multiple lines as in RFC 2616.
+     *
+     * At the end of the header block, this returns an empty array.
+     * On an error, this returns null.
+     *
+     * @return [key, value]
+     */
+    String[] parseHeader() {
+        var line = this.nextLine;
+        this.nextLine = null;
+        if (line == null) {
+            line = this.lineReader.readline();
+            if (line == null) {
+                return null;
+            }
+        }
+        var lineLength = line.length();
+        if (lineLength == 0) {
+            return new String[0];
+        }
+        var result = new String[2];
+        var len = getTokenLength(line, 0, SEPARATORS);
+        if (len == 0 || len == lineLength) {
+            return null;
+        }
+        result[0] = line.substring(0, len);
+        if (line[len] != ':') {
+            return null;
+        }
+        var value = trimSpace(line, len+1);
+        while (true) {
+            this.nextLine = this.lineReader.readline();
+            if (this.nextLine == null || !isSpace(this.nextLine[0])) {
+                break;
+            }
+            value = value + " " + trimSpace(this.nextLine, 0);
+        } 
+        result[1] = value;
+        return result;
+    }
+
+    /**
+     * Delete the first "idx" bytes from arr, and then delete whitespace
+     * bytes at the start and end of arr.
+     */
+    private String trimSpace(String line, int idx) {
+        var len = line.length();
+        while (idx < len && isSpace(line[idx])) {
+            idx++;
+        }
+        if (idx == len) {
+            return "";
+        }
+        while (isSpace(line[len-1])) {
+            len--;
+        }
+        return line.substring(idx, len);
+    }
+
+    private boolean isSpace(byte ch) {
+        return ch == ' ' || ch == '\t';
+    }
+}
