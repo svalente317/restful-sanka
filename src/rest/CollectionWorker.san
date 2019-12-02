@@ -3,35 +3,27 @@ package sanka.rest;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
-import sanka.rest.BaseRestWorker;
 import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
 
 /**
  * CollectionWorker provides the infrastructure to manage a collection of
  * REST resources.
- *
- * The class hierarchy is:
- * RestWorker -> BaseRestWorker -> CollectionWorker -> [your worker]
  */
-class CollectionWorker {
-    private BaseRestWorker base;
-    export base;
+abstract class CollectionWorker extends RestWorker {
     private String tableName;
     private String primaryKeyField;
     private boolean generatePrimaryKey;
-    private PostValidator validator;
 
     boolean isCollection() {
         return true;
     }
 
-    CollectionWorker(String tableName, String primaryKeyField,
-        boolean generatePrimaryKey, PostValidator validator) {
-        this.base = new BaseRestWorker();
+    void setTableName(String tableName, String primaryKeyField,
+        boolean generatePrimaryKey) {
         this.tableName = tableName;
         this.primaryKeyField = primaryKeyField;
         this.generatePrimaryKey = generatePrimaryKey;
-        this.validator = validator;
     }
 
     /**
@@ -64,12 +56,10 @@ class CollectionWorker {
         // Resources are created at generation 1.
         row.setInt("generation", 1);
 
-        if (this.validator != null) {
-            var error = this.validator.validatePost(op, row, null);
-            if (error != null) {
-                op.setErrorBody(error);
-                return;
-            }
+        var error = validatePost(op, row, null);
+        if (error != null) {
+            op.setErrorBody(error);
+            return;
         }
         var status = Globals.getDatabase().insertRow(this.tableName, row);
         if (status != 0) {
@@ -124,12 +114,10 @@ class CollectionWorker {
         // it is specified in the URL. And it cannot be changed.
         newRow.set(this.primaryKeyField, oldRow.get(this.primaryKeyField));
 
-        if (this.validator != null) {
-            var error = this.validator.validatePost(op, newRow, oldRow);
-            if (error != null) {
-                op.setErrorBody(error);
-                return;
-            }
+        var error = validatePost(op, newRow, oldRow);
+        if (error != null) {
+            op.setErrorBody(error);
+            return;
         }
         var status = Globals.getDatabase().updateRow(
             this.tableName, this.primaryKeyField, newRow);
@@ -189,19 +177,10 @@ class CollectionWorker {
 
     /**
      * TODO. Implement onDelete().
-     */
+     *
     void onDelete(RestOperation op) {
-        op.setErrorBody("not implemented");
-    }
-}
+    */
 
-/**
- * Abstract CollectionWorker methods.
- *
- * Maybe I should enhance the Sanka language and compiler to better support
- * this kind of thing.
- */
-interface PostValidator {
     /**
      * Validate the given new resource. This may modify the resource
      * state (normalize fields, etc).
@@ -211,5 +190,7 @@ interface PostValidator {
      *
      * If the post should be continued, then return null.
      */
-    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow);
+    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
+        return null;
+    }
 }

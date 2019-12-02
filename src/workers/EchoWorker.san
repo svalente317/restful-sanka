@@ -1,6 +1,6 @@
 // -*- mode: Java; -*-
 package sanka.rest;
-import sanka.rest.BaseRestWorker;
+import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
 serializable class EchoWorkerState {
@@ -14,16 +14,10 @@ serializable class EchoWorkerState {
  * To process a POST request, it saves the content that was posted.
  * To process a GET request, it echoes the content that was posted.
  */
-class EchoWorker {
+class EchoWorker extends RestWorker {
     const WORKER_PATH = "/echo";
 
-    private BaseRestWorker base;
     private EchoWorkerState savedState;
-    export base;
-
-    EchoWorker() {
-        this.base = new BaseRestWorker();
-    }
 
     void onPost(RestOperation op) {
         var state = new EchoWorkerState();

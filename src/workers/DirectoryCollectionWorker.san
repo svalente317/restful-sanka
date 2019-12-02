@@ -3,20 +3,17 @@ package sanka.rest;
 import sanka.io.File;
 import sanka.io.FileReader;
 import sanka.io.FileStats;
-import sanka.rest.BaseRestWorker;
+import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
 /**
  * Register a DirectoryCollectionWorker to expose the files that are
  * directly in a single directory.
  */
-class DirectoryCollectionWorker {
-    private BaseRestWorker base;
+class DirectoryCollectionWorker extends RestWorker {
     private File directory;
-    export base;
 
     DirectoryCollectionWorker(String directory) {
-        this.base = new BaseRestWorker();
         this.directory = new File(directory);
     }
 

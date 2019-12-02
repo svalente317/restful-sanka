@@ -1,7 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.rest;
 import sanka.http.Http;
-import sanka.rest.BaseRestWorker;
+import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
 /**
@@ -16,15 +16,8 @@ import sanka.rest.RestOperation;
  * which is defined entirely by EchoWorker.WORKER_PATH and EchoWorkerState.
  * This is simple and efficient.
  */
-class ReverseWorker {
+class ReverseWorker extends RestWorker {
     const WORKER_PATH = "/reverse";
-
-    private BaseRestWorker base;
-    export base;
-
-    ReverseWorker() {
-        this.base = new BaseRestWorker();
-    }
 
     void onGet(RestOperation op) {
         var subOp = send(Http.GET, EchoWorker.WORKER_PATH, null);

@@ -11,11 +11,8 @@ serializable class UserState {
 /**
  * UserCollectionWorker manages a collection of REST resources.
  */
-class UserCollectionWorker {
+class UserCollectionWorker extends CollectionWorker {
     const WORKER_PATH = "/users";
-
-    private CollectionWorker base;
-    export base;
 
     /**
      * When the worker starts, create the "users" table in the database.
@@ -24,7 +21,7 @@ class UserCollectionWorker {
      * Should "create table" be abstracted through sanka.sqlite3 somehow?
      */
     UserCollectionWorker() {
-        this.base = new CollectionWorker("users", "username", false, null);
+        setTableName("users", "username", false);
         var sql = "create table users (username text primary key, " +
             "fullName text, generation integer)";
         Globals.getDatabase().execute(sql);

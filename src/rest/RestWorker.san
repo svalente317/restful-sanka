@@ -1,10 +1,43 @@
 // -*- mode: Java; -*-
 package sanka.rest;
+import sanka.http.Http;
+import sanka.json.Serializable;
 
-interface RestWorker {
-    void setRestProcessor(RestProcessor processor);
-    boolean isCollection();
-    void onGet(RestOperation op);
-    void onPost(RestOperation op);
-    void onDelete(RestOperation op);
+/**
+ * RestWorker provides the basic worker functionality:
+ * 1. Respond to GET, POST, and DELETE requests.
+ * 2. Send requests to other workers running in-process.
+ */
+abstract class RestWorker {
+    private RestProcessor processor;
+
+    void setRestProcessor(RestProcessor processor) {
+        this.processor = processor;
+    }
+        
+    boolean isCollection() {
+        return false;
+    }
+
+    void onGet(RestOperation op) {
+        op.setErrorBody("method not supported");
+    }
+
+    void onPost(RestOperation op) {
+        op.setErrorBody("method not supported");
+    }
+
+    void onDelete(RestOperation op) {
+        op.setErrorBody("method not supported");
+    }
+
+    RestOperation send(String method, String path, Serializable body) {
+        var op = new RestOperation();
+        op.status = Http.OK;
+        op.method = method;
+        op.path = path;
+        op.setBody(body);
+        this.processor.processOperation(op);
+        return op;
+    }
 }
