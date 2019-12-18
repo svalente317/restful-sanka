@@ -43,7 +43,7 @@ class RestProcessor {
             var idx = path.lastIndexOf('/');
             if (idx > 0) {
                 var parentPath = path.substring(0, idx);
-                var key = path.substring(idx+1, 0);
+                var key = path.substring(idx+1);
                 worker = this.workerMap[parentPath];
                 if (worker != null) {
                     if (worker.isCollection()) {

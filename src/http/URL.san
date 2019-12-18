@@ -18,18 +18,18 @@ class URL {
         var idx = uri.indexOf('?');
         if (idx >= 0) {
             this.path = uri.substring(0, idx);
-            this.query = uri.substring(idx+1, -1);
+            this.query = uri.substring(idx+1);
             idx = this.query.indexOf('#');
             if (idx >= 0) {
                 var text = this.query;
                 this.query = text.substring(0, idx);
-                this.fragment = text.substring(idx+1, -1);
+                this.fragment = text.substring(idx+1);
             }
         } else {
             idx = uri.indexOf('#');
             if (idx >= 0) {
                 this.path = uri.substring(0, idx);
-                this.fragment = uri.substring(idx+1, -1);
+                this.fragment = uri.substring(idx+1);
             } else {
                 this.path = uri;
             }

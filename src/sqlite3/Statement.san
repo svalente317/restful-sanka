@@ -52,11 +52,11 @@ class Statement {
     }
 
     String columnText(int iCol) {
-        c__stmt "return STRING_SUBSTRING(sqlite3_column_text(this->statement, iCol), 0, 0)";
+        c__stmt "return STRING_SUBSTRING(sqlite3_column_text(this->statement, iCol), 0, 0, 1)";
     }
 
     String columnName(int iCol) {
-        c__stmt "return STRING_SUBSTRING(sqlite3_column_name(this->statement, iCol), 0, 0)";
+        c__stmt "return STRING_SUBSTRING(sqlite3_column_name(this->statement, iCol), 0, 0, 1)";
     }
 
     int columnType(int iCol) {
