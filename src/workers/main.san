@@ -24,7 +24,7 @@ class RestfulSanka {
             switch (argv[idx]) {
             case "-p":
                 idx++;
-                port = System.l2i(System.parseLong(argv[idx]));
+                port = System.parseInt(argv[idx]);
                 break;
             case "-x":
                 idx++;
