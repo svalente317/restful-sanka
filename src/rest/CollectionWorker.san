@@ -3,6 +3,7 @@ package sanka.rest;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
+import sanka.http.Query;
 import sanka.rest.RestOperation;
 import sanka.rest.RestWorker;
 
@@ -138,7 +139,36 @@ abstract class CollectionWorker extends RestWorker {
             return;
         }
         var sql = "select * from " + this.tableName;
+        var values = null;
+        if (op.query != null) {
+            var query = getQueryForCollection(op);
+            var clause = "";
+            var separator = "";
+            for (var key, value : query.getMap()) {
+                if (isValidQueryKey(key)) {
+                    if (values == null) {
+                        values = new String[0];
+                    }
+                    clause = clause + separator + key + "=?";
+                    separator = " and ";
+                    values.add(value);
+                }
+            }
+            if (values != null) {
+                sql = sql + " where " + clause;
+            }
+        }
         var statement = Globals.getDatabase().prepare(sql);
+        if (statement == null) {
+            op.setErrorBody("query failed with status " +
+                Globals.getDatabase().getStatus());
+            return;
+        }
+        if (values != null) {
+            for (var idx = 0; idx < values.length; idx++) {
+                statement.bindText(idx+1, values[idx]);
+            }
+        }
         var body = "{\"items\":[";
         var comma = "";
         while (true) {
@@ -192,5 +222,14 @@ abstract class CollectionWorker extends RestWorker {
      */
     String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
         return null;
+    }
+
+    Query getQueryForCollection(RestOperation op) {
+        return new Query(op.query);
+    }
+
+    boolean isValidQueryKey(String key) {
+        // TODO verify valid field name
+        return true;
     }
 }

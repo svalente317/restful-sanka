@@ -1,0 +1,112 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+singleton class URLEncoder {
+
+    private boolean[] valid;
+    private boolean[] reserved;
+    
+    URLEncoder() {
+        this.valid = new boolean[128];
+        this.reserved = new boolean[128];
+        for (var c1 = 'A'; c1 <= 'Z'; c1++) {
+            this.valid[c1] = true;
+        }
+        for (var c2 = 'a'; c2 <= 'z'; c2++) {
+            this.valid[c2] = true;
+        }
+        for (var c3 = '0'; c3 <= '9'; c3++) {
+            this.valid[c3] = true;
+        }
+        this.valid['-'] = true;
+        this.valid['_'] = true;
+        this.valid['.'] = true;
+        this.valid['~'] = true;
+
+        // RFC 3986 lists reserved characters that only need to be encoded
+        // in certain parts of a URL.
+        //
+        // gen-delims  = : / ? # [ ] @
+        // sub-delims  = ! $ & ' ( ) * + , ; =
+        //
+        // We particularly care about encoding and decoding keys and values
+        // in the query component. So:
+        // The characters that MUST be encoded are equals and ampersand.
+        // The characters that should not be encoded are slash and at-sign.
+        // Everything else is fairly unimportant, so we'll encode them.
+
+        this.valid['/'] = true;
+        this.valid['@'] = true;
+
+        // encode(): Encode these characters.
+        // decode(): Do not require these characters to have been encoded.
+
+        for (var ch : ":/?#[]@!$&'()*,;=") {
+            this.reserved[ch] = true;
+        }
+    }
+
+    /**
+     * Encode a string to be a key or value in a URL query component.
+     */
+    String encode(String str) {
+        var out = new byte[0];
+        var count = 0;
+        for (var ch : str) {
+            if (ch > 0 && ch < 128 && this.valid[ch]) {
+                out.add(ch);
+            } else {
+                out.add('%');
+                var value = new int(ch);
+                if (value < 0) {
+                    value = 256 + value;
+                }
+                var hi = new byte(value >> 4);
+                var lo = new byte(value & 15);
+                hi = (hi < 10 ? '0' + hi : 'A' + hi-10);
+                lo = (lo < 10 ? '0' + lo : 'A' + lo-10);
+                out.add(hi);
+                out.add(lo);
+                count++;
+            }
+        }
+        return count == 0 ? str : new String(out);
+    }
+
+    /**
+     * Decode a string key or value from a URL query component.
+     */
+    String decode(String str) {
+        var out = new byte[0];
+        var length = str.length();
+        var count = 0;
+        for (var idx = 0; idx < length; idx++) {
+            var ch = str[idx];
+            if (ch > 0 && ch < 128 && (this.valid[ch] || this.reserved[ch])) {
+                out.add(ch);
+            } else if (ch == '%' && idx+2 < length) {
+                count++;
+                idx++;
+                ch = str[idx];
+                var hi = (ch >= '0' && ch <= '9') ? (ch - '0') :
+                    ((ch >= 'A' && ch <= 'F') ? (ch - 'A' + 10) : -1);
+                idx++;
+                ch = str[idx];
+                var lo = (ch >= '0' && ch <= '9') ? (ch - '0') :
+                    ((ch >= 'A' && ch <= 'F') ? (ch - 'A' + 10) : -1);
+                if (lo < 0 || hi < 0) {
+                    return null;
+                }
+                out.add(new byte(hi << 4 | lo));
+            } else if (ch == '+') {
+                // Special-case decode plus to space.
+                count++;
+                out.add(' ');
+            } else {
+                // Invalid encoded string.
+                return null;
+            }
+        }
+        return count == 0 ? str : new String(out);
+    }
+}

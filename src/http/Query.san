@@ -1,0 +1,63 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+class Query {
+    private String text;
+    private String[String] map;
+
+    /**
+     * Create a Query object from a URL query component like
+     * key=value&key=value& where the keys and values are URL encoded.
+     */
+    Query(String text) {
+        this.text = text;
+    }
+
+    /**
+     * Get the query as a collection of decoded keys and values.
+     */
+    String[String] getMap() {
+        if (this.map != null || this.text == null) {
+            return this.map;
+        }
+        // Parse this.text -> this.map.
+        this.map = new String[class String];
+        var idx = 0;
+        while (true) {
+            var start = idx;
+            while (this.text[idx] != '=' && this.text[idx] != 0) {
+                idx++;
+            }
+            if (this.text[idx] == 0) {
+                break;
+            }
+            var key = this.text.substring(start, idx);
+            idx++;
+            start = idx;
+            while (this.text[idx] != '&' && this.text[idx] != 0) {
+                idx++;
+            }
+            var value = this.text.substring(start, idx);
+            key = URLEncoder.get().decode(key);
+            value = URLEncoder.get().decode(value);
+            this.map[key] = value;
+            if (this.text[idx] == 0) {
+                break;
+            }
+            idx++;
+        }
+        return this.map;
+    }
+
+    /**
+     * Return the keys and values like key=value&key=value&
+     * where the keys and values are URL encoded.
+     */
+    String encode() {
+        if (this.map == null) {
+            return this.text;
+        }
+        // TODO unparse map to query string
+        return null;
+    }
+}

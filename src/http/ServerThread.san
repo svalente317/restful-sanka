@@ -64,8 +64,7 @@ class ServerThread {
     }
 
     private void sendResponse(HttpResponse response) {
-        // TODO code to reason phrase
-        var reason = "OK";
+        var reason = StatusCodes.get().getDescription(response.status);
         var text = Http.VERSION + " " + response.status + " " + reason + "\r\n";
         if (response.headers[Http.DATE] == null) {
             var date = System.formatTime(Http.RFC822_FORMAT,
