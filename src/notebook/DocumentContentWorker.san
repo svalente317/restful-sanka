@@ -1,0 +1,79 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.io.FileReader;
+import sanka.io.FileWriter;
+import sanka.http.Http;
+import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
+
+class DocumentContentWorker extends RestWorker {
+    const WORKER_PATH = "/documentContents";
+
+    boolean isCollection() {
+        return true;
+    }
+
+    void onPost(RestOperation op) {
+        if (op.key == null) {
+            op.setErrorBody(WORKER_PATH + ": missing document id");
+            return;
+        }
+        var body = op.getBody();
+        if (body == null) {
+            op.setErrorBody(WORKER_PATH + ": missing document contents");
+            return;
+        }
+        var path = DocumentsWorker.WORKER_PATH + "/" + op.key;
+        var state = new DocumentState();
+        var subOp = send(Http.POST, path, state);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        subOp.parseBody(state);
+        var writer = new FileWriter();
+        var status = writer.open(state.filename);
+        if (status != 0) {
+            op.setErrorBody(WORKER_PATH + ": " + System.strerror(status));
+            return;
+        }
+        writer.write(body);
+        status = writer.close();
+        if (status != 0) {
+            op.setErrorBody(WORKER_PATH + ": " + System.strerror(status));
+            return;
+        }
+        op.setRawBody(new byte[0]);
+    }
+
+    void onGet(RestOperation op) {
+        if (op.key == null) {
+            op.setErrorBody(WORKER_PATH + ": missing document id");
+            return;
+        }
+        var path = DocumentsWorker.WORKER_PATH + "/" + op.key;
+        var subOp = send(Http.GET, path, null);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        var state = new DocumentState();
+        subOp.parseBody(state);
+        if (state.filename == null) {
+            op.setRawBody(new byte[0]);
+            return;
+        }
+        var reader = new FileReader();
+        var status = reader.open(state.filename);
+        if (status != 0) {
+            op.setErrorBody(WORKER_PATH + ": " + System.strerror(status));
+            return;
+        }
+        var body = reader.readFile();
+        if (body == null) {
+            op.setErrorBody(WORKER_PATH + ": read failure");
+            return;
+        }
+        op.setRawBody(body);
+    }
+}

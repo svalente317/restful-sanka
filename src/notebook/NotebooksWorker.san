@@ -1,0 +1,61 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.http.Http;
+import sanka.json.JsonObject;
+import sanka.rest.CollectionWorker;
+import sanka.rest.Globals;
+import sanka.rest.RestOperation;
+
+serializable class NotebookState {
+    int id;
+    int userId;
+    String name;
+    long created;
+    long lastUpdate;
+    String documentIds; // TODO int[] pages
+    int generation;
+}
+
+class NotebooksWorker extends CollectionWorker {
+    const WORKER_PATH = "/notebooks";
+
+    NotebooksWorker() {
+        setTableName("notebooks", "id", true);
+        var sql = "create table notebooks (" +
+            "id integer primary key autoincrement, userId integer, " +
+            "name text, created integer, lastUpdate integer, " +
+            "documentIds text, generation integer)";
+        Globals.getDatabase().execute(sql);
+    }
+
+    void onPost(RestOperation op) {
+        if (op.key != null) {
+            super.onPost(op);
+            return;
+        }
+        var state = new NotebookState();
+        if (!op.parseBody(state) || state.name == null) {
+            op.setErrorBody("missing field: name");
+            return;
+        }
+        // To create a new notebook, create a new front page.
+        var docState = new DocumentState();
+        var subOp = send(Http.POST, DocumentsWorker.WORKER_PATH, docState);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        subOp.parseBody(docState);
+        state.userId = op.userId;
+        state.created = System.currentTimeMillis();
+        state.lastUpdate = state.created;
+        state.documentIds = "" + docState.id;
+        op.setBody(state);
+        super.onPost(op);
+    }
+
+    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
+        // TODO validate notebook post
+        return null;
+    }
+}

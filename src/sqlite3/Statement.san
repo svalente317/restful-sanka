@@ -178,8 +178,8 @@ class Statement {
      * or the "where" clause of a SELECT statement.
      */
 
-    int bindInt(int iCol, int value) {
-        c__stmt "return sqlite3_bind_int(this->statement, iCol, value)";
+    int bindInt(int iCol, long value) {
+        c__stmt "return sqlite3_bind_int64(this->statement, iCol, value)";
     }
 
     int bindDouble(int iCol, double value) {

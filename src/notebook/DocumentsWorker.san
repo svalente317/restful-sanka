@@ -1,0 +1,77 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.http.Http;
+import sanka.json.JsonObject;
+import sanka.rest.CollectionWorker;
+import sanka.rest.Globals;
+import sanka.rest.RestOperation;
+
+serializable class DocumentState {
+    int id;
+    int userId;
+    String filename;
+    long lastUpdate;
+    int generation;
+}
+
+class DocumentsWorker extends CollectionWorker {
+    const WORKER_PATH = "/documents";
+
+    // As long as the user keeps saving every five minutes, it all remains
+    // a single session.
+    const SESSION_TIME = 5 * 60 * 1000;
+
+    const DOCUMENT_ROOT = "/tmp/";
+
+    DocumentsWorker() {
+        setTableName("documents", "id", true);
+        var sql = "create table documents (" +
+            "id integer primary key autoincrement, userId int, " +
+            "filename text, lastUpdate int, generation int)";
+        Globals.getDatabase().execute(sql);
+    }
+
+    /**
+     * DocumentsWorker ignores all user input. It simply decides when to
+     * generate new filenames, and when to overwrite existing files.
+     */
+    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
+        var now = System.currentTimeMillis();
+        row.setInt("userId", op.userId);
+        row.remove("filename");
+        row.setLong("lastUpdate", now);
+        if (oldRow == null) {
+            return null;
+        }
+        var oldState = new DocumentState();
+        oldState.fromJson(oldRow);
+        if (oldState.userId == op.userId && oldState.filename != null &&
+            oldState.lastUpdate + SESSION_TIME >= now) {
+            // The user is saving the document in the same "session" as the
+            // previous save. Overwrite the previous version. The new version
+            // will be the one to represent this session.
+            row.setString("filename", oldState.filename);
+        } else {
+            if (oldState.filename != null) {
+                postDocumentHistory(oldState);
+            }
+            row.setString("filename", generateFilename());
+        }
+        return null;
+    }
+
+    private void postDocumentHistory(DocumentState state) {
+        var history = new DocumentHistoryState();
+        history.documentId = state.id;
+        history.userId = state.userId;
+        history.filename = state.filename;
+        history.lastUpdate = state.lastUpdate;
+        send(Http.POST, DocumentHistoryWorker.WORKER_PATH, history);
+    }
+
+    private String generateFilename() {
+        return DOCUMENT_ROOT + System.currentTimeMillis();
+    }
+
+    // TODO onDelete(): postDocumentHistory() if necessary
+}

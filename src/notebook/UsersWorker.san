@@ -1,0 +1,26 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.rest.CollectionWorker;
+import sanka.rest.Globals;
+
+serializable class UserState {
+    int id;
+    String username;
+    String password;
+    String fullName;
+    int generation;
+}
+
+/**
+ * UsersWorker manages a collection of users.
+ */
+class UsersWorker extends CollectionWorker {
+    const WORKER_PATH = "/users";
+
+    UsersWorker() {
+        setTableName("users", "id", true);
+        var sql = "create table users (id integer primary key autoincrement, " +
+            "username text, password text, fullName text, generation integer)";
+        Globals.getDatabase().execute(sql);
+    }
+}

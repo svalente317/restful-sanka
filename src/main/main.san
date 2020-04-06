@@ -1,34 +1,38 @@
 // -*- mode: Java; -*-
-package sanka.rest;
-import sanka.rest.RestProcessor;
+package sanka.rest.main;
 import sanka.http.Server;
 import sanka.sqlite3.Database;
+import sanka.rest.Globals;
+import sanka.rest.RestProcessor;
+import sanka.rest.examples.DirectoryCollectionWorker;
+import sanka.rest.examples.EchoWorker;
+import sanka.rest.examples.ReverseWorker;
+import sanka.rest.notebook.DocumentContentWorker;
+import sanka.rest.notebook.DocumentHistoryWorker;
+import sanka.rest.notebook.DocumentsWorker;
+import sanka.rest.notebook.NotebooksWorker;
+import sanka.rest.notebook.UsersWorker;
 
 /**
  * Start a REST server listening on port 8888.
  * Register EchoWorker and ReverseWorker.
+ * Register Notebook workers.
  *
  * -p port
- * -x directory: export local directory as /export
  * -d database: run database worker. Store DB in specified file.
  */
 class RestfulSanka {
-    const USAGE = "Usage: restful-server [-p port] [-x export] [-d database]";
+    const USAGE = "Usage: restful-server [-p port] [-d database]";
 
     static int main(String[] argv) {
         var port = 8888;
-        var exportDir = null;
-        var dbFile = null;
+        var dbFile = "/tmp/restful-sanka.db";
         var error = false;
         for (var idx = 1; idx < argv.length; idx++) {
             switch (argv[idx]) {
             case "-p":
                 idx++;
                 port = System.parseInt(argv[idx]);
-                break;
-            case "-x":
-                idx++;
-                exportDir = argv[idx];
                 break;
             case "-d":
                 idx++;
@@ -54,17 +58,20 @@ class RestfulSanka {
             }
         }
         var processor = new RestProcessor();
-        processor.register(EchoWorker.WORKER_PATH, new EchoWorker());
-        processor.register(ReverseWorker.WORKER_PATH, new ReverseWorker());
-        if (exportDir != null) {
-            var workerPath = "/export";
-            var worker = new DirectoryCollectionWorker(exportDir);
-            processor.register(workerPath, worker);
-        }
-        if (database != null) {
-            processor.register(UserCollectionWorker.WORKER_PATH,
-                               new UserCollectionWorker());
-        }
+        processor.register(EchoWorker.WORKER_PATH,
+                           new EchoWorker());
+        processor.register(ReverseWorker.WORKER_PATH,
+                           new ReverseWorker());
+        processor.register(DocumentContentWorker.WORKER_PATH,
+                           new DocumentContentWorker());
+        processor.register(DocumentHistoryWorker.WORKER_PATH,
+                           new DocumentHistoryWorker());
+        processor.register(DocumentsWorker.WORKER_PATH,
+                           new DocumentsWorker());
+        processor.register(NotebooksWorker.WORKER_PATH,
+                           new NotebooksWorker());
+        processor.register(UsersWorker.WORKER_PATH,
+                           new UsersWorker());
         var server = new Server();
         server.listen(port, processor);
         if (database != null) {

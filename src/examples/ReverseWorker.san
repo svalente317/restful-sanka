@@ -1,5 +1,5 @@
 // -*- mode: Java; -*-
-package sanka.rest;
+package sanka.rest.examples;
 import sanka.http.Http;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;

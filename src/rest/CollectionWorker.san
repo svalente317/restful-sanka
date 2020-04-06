@@ -69,7 +69,7 @@ abstract class CollectionWorker extends RestWorker {
         }
         if (this.generatePrimaryKey) {
             var id = Globals.getDatabase().getLastInsertRowId();
-            row.setInt(this.primaryKeyField, new int(id));
+            row.setLong(this.primaryKeyField, id);
         }
         op.setJsonBody(row);
     }

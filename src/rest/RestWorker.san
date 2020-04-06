@@ -32,12 +32,14 @@ abstract class RestWorker {
     }
 
     RestOperation send(String method, String path, Serializable body) {
+        System.println("send " + method + " to " + path);
         var op = new RestOperation();
         op.status = Http.OK;
         op.method = method;
         op.path = path;
         op.setBody(body);
         this.processor.processOperation(op);
+        System.println("status=" + op.status);
         return op;
     }
 }

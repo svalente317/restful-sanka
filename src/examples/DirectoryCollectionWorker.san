@@ -1,5 +1,5 @@
 // -*- mode: Java; -*-
-package sanka.rest;
+package sanka.rest.examples;
 import sanka.io.File;
 import sanka.io.FileReader;
 import sanka.io.FileStats;
@@ -68,15 +68,15 @@ class DirectoryCollectionWorker extends RestWorker {
     private void onGetFile(RestOperation op) {
         var file = new File(this.directory, op.key);
         var stats = new FileStats();
-        var errno = file.getStats(stats, true);
-        if (errno != 0) {
-            op.setErrorBody(file.toString() + ": " + System.strerror(errno));
+        var result = file.getStats(stats, true);
+        if (result != 0) {
+            op.setErrorBody(file.toString() + ": " + System.strerror(result));
             return;
         }
         var reader = new FileReader();
-        errno = reader.open(file.getPath());
-        if (errno != 0) {
-            op.setErrorBody(file.toString() + ": " + System.strerror(errno));
+        result = reader.open(file.getPath());
+        if (result != 0) {
+            op.setErrorBody(file.toString() + ": " + System.strerror(result));
             return;
         }
         var buffer = new byte[stats.length];

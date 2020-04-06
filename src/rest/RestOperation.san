@@ -34,7 +34,7 @@ import sanka.lang.Object;
  *    to get the bytes that it must send.
  */
 class RestOperation {
-    String authUser;
+    int userId;
     String method;
     String path;
     String key;

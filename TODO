@@ -1,3 +1,4 @@
+* Race condition in update resource in collection
 * Server.san - use thread pool
 * HttpRequest.san - support repeated header
 * Add any more response headers?

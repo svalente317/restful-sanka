@@ -1,0 +1,25 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.rest.CollectionWorker;
+import sanka.rest.Globals;
+
+serializable class DocumentHistoryState {
+    int id;
+    int documentId;
+    int userId;
+    String filename;
+    long lastUpdate;
+    int generation;
+}
+
+class DocumentHistoryWorker extends CollectionWorker {
+    const WORKER_PATH = "/documentHistory";
+
+    DocumentHistoryWorker() {
+        setTableName("documentHistory", "id", true);
+        var sql = "create table documentHistory (" +
+            "id integer primary key autoincrement, documentId int, " +
+            "userId int, filename text, lastUpdate int, generation int)";
+        Globals.getDatabase().execute(sql);
+    }
+}
