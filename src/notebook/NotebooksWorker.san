@@ -33,34 +33,106 @@ class NotebooksWorker extends CollectionWorker {
         setTableSchema("notebooks", "id", fields, true);
     }
 
-    void onPost(RestOperation op) {
-        if (op.key != null) {
-            super.onPost(op);
-            return;
+    /**
+     * To create a new notebook, create a new front page.
+     */
+    String validatePost(RestOperation op, JsonObject oldRow) {
+        if (oldRow != null) {
+            return validateUpdate(op, oldRow);
         }
         var state = new NotebookState();
         if (!op.parseBody(state) || state.name == null) {
-            op.setErrorBody("missing field: name");
-            return;
+            return "missing field: name";
         }
-        // To create a new notebook, create a new front page.
-        var docState = new DocumentState();
-        var subOp = send(Http.POST, DocumentsWorker.WORKER_PATH, docState);
-        if (!subOp.success()) {
-            op.setFrom(subOp);
-            return;
+        var id = createDocument();
+        if (id <= 0) {
+            return "failed to create document";
         }
-        subOp.parseBody(docState);
         state.userId = op.userId;
         state.created = System.currentTimeMillis();
         state.lastUpdate = state.created;
-        state.documentIds = new int[]{ docState.id };
+        state.documentIds = new int[]{ id };
         op.setBody(state);
-        super.onPost(op);
+        return null;
     }
 
-    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
-        // TODO validate notebook post
+    /**
+     * To update an existing notebook, validate that the user owns the
+     * documents, and create new pages as requested.
+     */
+    private String validateUpdate(RestOperation op, JsonObject oldRow) {
+        var state = new NotebookState();
+        if (!op.parseBody(state)) {
+            return "bad post body";
+        }
+        var current = new NotebookState();
+        current.fromJson(oldRow);
+        state.userId = op.userId;
+        if (state.name == null) {
+            state.name = current.name;
+        }
+        if (state.created == 0) {
+            state.created = current.created;
+        }
+        else if (state.created != current.created) {
+            return "cannot change notebook created time";
+        }
+        state.lastUpdate = System.currentTimeMillis();
+        if (state.documentIds == null) {
+            state.documentIds = current.documentIds;
+            op.setBody(state);
+            return null;
+        }
+        var currentIds = new boolean[class int];
+        for (var documentId : current.documentIds) {
+            currentIds[documentId] = true;
+        }
+        for (var idx = 0; idx < state.documentIds.length; idx++) {
+            var id = state.documentIds[idx];
+            if (id > 0 && currentIds.remove(id)) {
+                continue;
+            }
+            if (id == 0) {
+                id = createDocument();
+                if (id <= 0) {
+                    return "failed to create document";
+                }
+                state.documentIds[idx] = id;
+            } else {
+                if (!validateDocument(id, op.userId)) {
+                    return "illegal document specified in notebook";
+                }
+            }
+        }
+        // Documents that remain in currentIds must be garbage collected.
+        op.setBody(state);
         return null;
+    }
+
+    /**
+     * Post to DocumentsWorker and return new document id.
+     */
+    private int createDocument() {
+        var docState = new DocumentState();
+        var op = send(Http.POST, DocumentsWorker.WORKER_PATH, docState);
+        if (!op.success()) {
+            return 0;
+        }
+        op.parseBody(docState);
+        return docState.id;
+    }
+
+    /**
+     * Validate that the given documentId exists and is owned by the current
+     * user.
+     */
+    private boolean validateDocument(int id, int userId) {
+        var path = DocumentsWorker.WORKER_PATH + "/" + id;
+        var op = send(Http.GET, DocumentsWorker.WORKER_PATH, null);
+        if (!op.success()) {
+            return false;
+        }
+        var docState = new DocumentState();
+        return op.parseBody(docState) && docState.userId == userId;
     }
 }

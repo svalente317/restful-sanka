@@ -14,17 +14,16 @@ import sanka.sqlite3.JsonTable;
  */
 abstract class CollectionWorker extends RestWorker {
     private JsonTable table;
-    private boolean generatePrimaryKey;
 
     boolean isCollection() {
         return true;
     }
 
     void setTableSchema(String tableName, String primaryKey,
-            FieldDesc[] schema, boolean generatePrimaryKey) {
-        this.table = new JsonTable(tableName, primaryKey, schema);
-        this.generatePrimaryKey = generatePrimaryKey;
-        this.table.createTable(getDatabase(), generatePrimaryKey);
+                        boolean autoincrement, FieldDesc[] schema) {
+        this.table = new JsonTable(
+            tableName, primaryKey, autoincrement, schema);
+        this.table.createTable(getDatabase());
     }
 
     Database getDatabase() {
@@ -45,7 +44,7 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody("invalid body");
             return;
         }
-        if (this.generatePrimaryKey) {
+        if (this.table.autoincrement) {
             // Do not allow user to specify id.
             // The database will generate a unique id.
             row.remove(this.table.primaryKey);
@@ -60,22 +59,25 @@ abstract class CollectionWorker extends RestWorker {
         // Do not allow user to specify generation.
         // Resources are created at generation 1.
         row.setInt("generation", 1);
+        op.setJsonBody(row);
 
-        var error = validatePost(op, row, null);
+        var error = validatePost(op, null);
         if (error != null) {
             op.setErrorBody(error);
             return;
         }
+        row = op.getJsonBody();
+
         var status = this.table.insertRow(getDatabase(), row);
         if (status != 0) {
             op.setErrorBody("post failed: db status " + status);
             return;
         }
-        if (this.generatePrimaryKey) {
+        if (this.table.autoincrement) {
             var id = getDatabase().getLastInsertRowId();
             row.setLong(this.table.primaryKey, id);
+            op.setJsonBody(row);
         }
-        op.setJsonBody(row);
     }
 
     /**
@@ -118,18 +120,20 @@ abstract class CollectionWorker extends RestWorker {
         // Primary key does not need to be specified in the body, since
         // it is specified in the URL. And it cannot be changed.
         newRow.set(this.table.primaryKey, oldRow.get(this.table.primaryKey));
+        op.setJsonBody(newRow);
 
-        var error = validatePost(op, newRow, oldRow);
+        var error = validatePost(op, oldRow);
         if (error != null) {
             op.setErrorBody(error);
             return;
         }
+        newRow = op.getJsonBody();
+
         var status = this.table.updateRow(getDatabase(), newRow, null);
         if (status != 0) {
             op.setErrorBody("update failed: db status " + status);
             return;
         }
-        op.setJsonBody(newRow);
     }
     
     /**
@@ -215,15 +219,15 @@ abstract class CollectionWorker extends RestWorker {
     */
 
     /**
-     * Validate the given new resource. This may modify the resource
-     * state (normalize fields, etc).
+     * Validate the given new resource. This may modify the posted data in
+     * the operation body. (Normalize fields, etc).
      *
-     * If the post request should be aborted, then return an error
-     * string to be sent back to the caller.
+     * If the post request should be aborted, then return an error string
+     * to be sent back to the caller.
      *
      * If the post should be continued, then return null.
      */
-    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
+    String validatePost(RestOperation op, JsonObject oldRow) {
         return null;
     }
 

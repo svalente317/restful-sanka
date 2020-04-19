@@ -39,28 +39,29 @@ class DocumentsWorker extends CollectionWorker {
      * DocumentsWorker ignores all user input. It simply decides when to
      * generate new filenames, and when to overwrite existing files.
      */
-    String validatePost(RestOperation op, JsonObject row, JsonObject oldRow) {
-        var now = System.currentTimeMillis();
-        row.setInt("userId", op.userId);
-        row.remove("filename");
-        row.setLong("lastUpdate", now);
-        if (oldRow == null) {
-            return null;
-        }
-        var oldState = new DocumentState();
-        oldState.fromJson(oldRow);
-        if (oldState.userId == op.userId && oldState.filename != null &&
-            oldState.lastUpdate + SESSION_TIME >= now) {
-            // The user is saving the document in the same "session" as the
-            // previous save. Overwrite the previous version. The new version
-            // will be the one to represent this session.
-            row.setString("filename", oldState.filename);
-        } else {
-            if (oldState.filename != null) {
-                postDocumentHistory(oldState);
+    String validatePost(RestOperation op, JsonObject oldRow) {
+        var state = new DocumentState();
+        op.parseBody(state);
+        state.userId = op.userId;
+        state.filename = null;
+        state.lastUpdate = System.currentTimeMillis();
+        if (oldRow != null) {
+            var current = new DocumentState();
+            current.fromJson(oldRow);
+            if (current.userId == op.userId && current.filename != null &&
+                current.lastUpdate + SESSION_TIME >= state.lastUpdate) {
+                // The user is saving the document in the same "session" as
+                // the previous save. Overwrite the previous version.
+                // The new version will represent this session.
+                state.filename = current.filename;
+            } else {
+                if (current.filename != null) {
+                    postDocumentHistory(current);
+                }
+                state.filename = generateFilename();
             }
-            row.setString("filename", generateFilename());
         }
+        op.setBody(state);
         return null;
     }
 

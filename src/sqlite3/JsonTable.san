@@ -29,14 +29,17 @@ class FieldDesc {
 class JsonTable {
     String tableName;
     String primaryKey;
+    boolean autoincrement;
     FieldDesc[] schema;
 
     /**
      * Define a schema for converting between Json data and Table data.
      */
-    JsonTable(String tableName, String primaryKey, FieldDesc[] schema) {
+    JsonTable(String tableName, String primaryKey, boolean autoincrement,
+              FieldDesc[] schema) {
         this.tableName = tableName;
         this.primaryKey = primaryKey;
+        this.autoincrement = autoincrement;
         this.schema = schema;
     }
 
@@ -45,7 +48,7 @@ class JsonTable {
      * If the table exists, then do nothing. (Should we verify and/or update
      * the table schema?
      */
-    int createTable(Database database, boolean autoincrement) {
+    int createTable(Database database) {
         var sql = "create table " + this.tableName;
         var names = "";
         var comma = "";
@@ -67,7 +70,7 @@ class JsonTable {
             var item = field.name + " " + typestr;
             if (field.name == this.primaryKey) {
                 item = item + " primary key";
-                if (autoincrement) {
+                if (this.autoincrement) {
                     item = item + " autoincrement";
                 }
             }
@@ -84,8 +87,6 @@ class JsonTable {
      * If the JsonObject has fields that are not named in the table schema,
      * or if any fields have incompatible types from the table schema, then
      * ignore those fields.
-     *
-     * TODO Add a method to validate a JsonObject against a schema?
      */
     int insertRow(Database database, JsonObject obj) {
         var sql = "insert into " + this.tableName;
@@ -93,6 +94,9 @@ class JsonTable {
         var marks = "";
         var comma = "";
         for (var field : this.schema) {
+            if (field.name == this.primaryKey && this.autoincrement) {
+                continue;
+            }
             names = names + comma + field.name;
             marks = marks + comma + "?";
             comma = ",";
@@ -124,6 +128,9 @@ class JsonTable {
         var sql = "update " + this.tableName + " set ";
         var comma = "";
         for (var field : this.schema) {
+            if (field.name == this.primaryKey && this.autoincrement) {
+                continue;
+            }
             sql = sql + comma + field.name + "=?";
             comma = ",";
         }
@@ -133,8 +140,8 @@ class JsonTable {
         if (statement == null) {
             return database.getStatus();
         }
-        bindValues(statement, obj);
-        bindValue(statement, this.schema.length+1, obj.get(this.primaryKey));
+        var idx = bindValues(statement, obj);
+        bindValue(statement, idx, obj.get(this.primaryKey));
         statement.step();
         return statement.finalize();
     }
@@ -142,9 +149,12 @@ class JsonTable {
     /**
      * Bind the values from 'obj' to 'statement' in order of this.schema.
      */
-    private void bindValues(Statement statement, JsonObject obj) {
+    private int bindValues(Statement statement, JsonObject obj) {
         var idx = 1;
         for (var field : this.schema) {
+            if (field.name == this.primaryKey && this.autoincrement) {
+                continue;
+            }
             var value = obj.get(field.name);
             if (value == null || value.type != field.type) {
                 statement.bindNull(idx);
@@ -153,6 +163,7 @@ class JsonTable {
             }
             idx++;
         }
+        return idx;
     }
 
     /**
