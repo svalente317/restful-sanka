@@ -5,6 +5,7 @@ import sanka.http.HttpParser;
 import sanka.http.HttpRequest;
 import sanka.http.HttpResponse;
 import sanka.http.URL;
+import sanka.http.URLEncoder;
 
 /**
  * RestProcessor is basically a registrar. Initially, you tell it which
@@ -55,9 +56,8 @@ class RestProcessor {
             }
         }
         if (worker == null) {
-            // Should sanitize path. Remove characters other then
-            // alphanumerics and slash.
-            op.setErrorBody("path not found: " + path);
+            op.setErrorBody("path not found: " +
+                URLEncoder.get().encode(path));
             op.status = Http.NOT_FOUND;
             return;
         }
@@ -73,8 +73,8 @@ class RestProcessor {
             worker.onDelete(op);
             break;
         default:
-            // Should sanitize method.
-            op.setErrorBody("invalid method: " + op.method);
+            op.setErrorBody("invalid method: " +
+                URLEncoder.get().encode(op.method));
             op.status = Http.METHOD_NOT_ALLOWED;
             break;
         }

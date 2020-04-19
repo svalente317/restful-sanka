@@ -1,7 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
+import sanka.json.JsonElement;
 import sanka.rest.CollectionWorker;
 import sanka.rest.Globals;
+import sanka.sqlite3.FieldDesc;
 
 serializable class UserState {
     int id;
@@ -18,9 +20,13 @@ class UsersWorker extends CollectionWorker {
     const WORKER_PATH = "/users";
 
     UsersWorker() {
-        setTableName("users", "id", true);
-        var sql = "create table users (id integer primary key autoincrement, " +
-            "username text, password text, fullName text, generation integer)";
-        Globals.getDatabase().execute(sql);
+        var fields = new FieldDesc[]{
+            new FieldDesc("id", JsonElement.INT_TYPE),
+            new FieldDesc("username", JsonElement.STRING_TYPE),
+            new FieldDesc("password", JsonElement.STRING_TYPE),
+            new FieldDesc("fullName", JsonElement.STRING_TYPE),
+            new FieldDesc("generation", JsonElement.INT_TYPE)
+        };
+        setTableSchema("users", "id", fields, true);
     }
 }

@@ -1,10 +1,11 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
 import sanka.http.Http;
+import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.rest.CollectionWorker;
-import sanka.rest.Globals;
 import sanka.rest.RestOperation;
+import sanka.sqlite3.FieldDesc;
 
 serializable class DocumentState {
     int id;
@@ -24,11 +25,14 @@ class DocumentsWorker extends CollectionWorker {
     const DOCUMENT_ROOT = "/tmp/";
 
     DocumentsWorker() {
-        setTableName("documents", "id", true);
-        var sql = "create table documents (" +
-            "id integer primary key autoincrement, userId int, " +
-            "filename text, lastUpdate int, generation int)";
-        Globals.getDatabase().execute(sql);
+        var fields = new FieldDesc[]{
+            new FieldDesc("id", JsonElement.INT_TYPE),
+            new FieldDesc("userId", JsonElement.INT_TYPE),
+            new FieldDesc("filename", JsonElement.STRING_TYPE),
+            new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
+            new FieldDesc("generation", JsonElement.INT_TYPE)
+        };
+        setTableSchema("documents", "id", fields, true);
     }
 
     /**

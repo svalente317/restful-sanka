@@ -31,7 +31,7 @@ singleton class URLEncoder {
         //
         // We particularly care about encoding and decoding keys and values
         // in the query component. So:
-        // The characters that MUST be encoded are equals and ampersand.
+        // The characters that must be encoded are equals and ampersand.
         // The characters that should not be encoded are slash and at-sign.
         // Everything else is fairly unimportant, so we'll encode them.
 

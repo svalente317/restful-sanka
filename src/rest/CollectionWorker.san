@@ -4,27 +4,31 @@ import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
 import sanka.http.Query;
-import sanka.rest.RestOperation;
-import sanka.rest.RestWorker;
+import sanka.sqlite3.Database;
+import sanka.sqlite3.FieldDesc;
+import sanka.sqlite3.JsonTable;
 
 /**
  * CollectionWorker provides the infrastructure to manage a collection of
  * REST resources.
  */
 abstract class CollectionWorker extends RestWorker {
-    private String tableName;
-    private String primaryKeyField;
+    private JsonTable table;
     private boolean generatePrimaryKey;
 
     boolean isCollection() {
         return true;
     }
 
-    void setTableName(String tableName, String primaryKeyField,
-        boolean generatePrimaryKey) {
-        this.tableName = tableName;
-        this.primaryKeyField = primaryKeyField;
+    void setTableSchema(String tableName, String primaryKey,
+            FieldDesc[] schema, boolean generatePrimaryKey) {
+        this.table = new JsonTable(tableName, primaryKey, schema);
         this.generatePrimaryKey = generatePrimaryKey;
+        this.table.createTable(getDatabase(), generatePrimaryKey);
+    }
+
+    Database getDatabase() {
+        return Globals.getDatabase();
     }
 
     /**
@@ -44,12 +48,12 @@ abstract class CollectionWorker extends RestWorker {
         if (this.generatePrimaryKey) {
             // Do not allow user to specify id.
             // The database will generate a unique id.
-            row.remove(this.primaryKeyField);
+            row.remove(this.table.primaryKey);
         } else {
             // The primary key must be non-null.
             // Specific workers may impose other requirements as well.
-            if (row.get(this.primaryKeyField) == null) {
-                op.setErrorBody("missing field: " + this.primaryKeyField);
+            if (row.get(this.table.primaryKey) == null) {
+                op.setErrorBody("missing field: " + this.table.primaryKey);
                 return;
             }
         }
@@ -62,14 +66,14 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody(error);
             return;
         }
-        var status = Globals.getDatabase().insertRow(this.tableName, row);
+        var status = this.table.insertRow(getDatabase(), row);
         if (status != 0) {
             op.setErrorBody("post failed: db status " + status);
             return;
         }
         if (this.generatePrimaryKey) {
-            var id = Globals.getDatabase().getLastInsertRowId();
-            row.setLong(this.primaryKeyField, id);
+            var id = getDatabase().getLastInsertRowId();
+            row.setLong(this.table.primaryKey, id);
         }
         op.setJsonBody(row);
     }
@@ -86,16 +90,16 @@ abstract class CollectionWorker extends RestWorker {
 
         // Get the current state of the specified resource.
         // This could be implemented using send(RestMethod.GET).
-        var sql = "select * from " + this.tableName + " where " +
-            this.primaryKeyField + " = ?";
-        var statement = Globals.getDatabase().prepare(sql);
+        var sql = "select * from " + this.table.tableName + " where " +
+            this.table.primaryKey + " = ?";
+        var statement = getDatabase().prepare(sql);
         if (statement == null) {
             op.setErrorBody("database failed with status " +
-                Globals.getDatabase().getStatus());
+                getDatabase().getStatus());
             return;
         }
         statement.bindText(1, op.key);
-        var oldRow = statement.nextRowJsonObject();
+        var oldRow = this.table.nextRowJsonObject(statement);
         statement.finalize();
         if (oldRow == null) {
             op.setErrorBody("resource " + op.key + " not found");
@@ -113,15 +117,14 @@ abstract class CollectionWorker extends RestWorker {
 
         // Primary key does not need to be specified in the body, since
         // it is specified in the URL. And it cannot be changed.
-        newRow.set(this.primaryKeyField, oldRow.get(this.primaryKeyField));
+        newRow.set(this.table.primaryKey, oldRow.get(this.table.primaryKey));
 
         var error = validatePost(op, newRow, oldRow);
         if (error != null) {
             op.setErrorBody(error);
             return;
         }
-        var status = Globals.getDatabase().updateRow(
-            this.tableName, this.primaryKeyField, newRow);
+        var status = this.table.updateRow(getDatabase(), newRow, null);
         if (status != 0) {
             op.setErrorBody("update failed: db status " + status);
             return;
@@ -138,7 +141,7 @@ abstract class CollectionWorker extends RestWorker {
             onGetResource(op);
             return;
         }
-        var sql = "select * from " + this.tableName;
+        var sql = "select * from " + this.table.tableName;
         var values = null;
         if (op.query != null) {
             var query = getQueryForCollection(op);
@@ -158,10 +161,10 @@ abstract class CollectionWorker extends RestWorker {
                 sql = sql + " where " + clause;
             }
         }
-        var statement = Globals.getDatabase().prepare(sql);
+        var statement = getDatabase().prepare(sql);
         if (statement == null) {
             op.setErrorBody("query failed with status " +
-                Globals.getDatabase().getStatus());
+                getDatabase().getStatus());
             return;
         }
         if (values != null) {
@@ -172,7 +175,7 @@ abstract class CollectionWorker extends RestWorker {
         var body = "{\"items\":[";
         var comma = "";
         while (true) {
-            var obj = statement.nextRowJsonObject();
+            var obj = this.table.nextRowJsonObject(statement);
             if (obj == null) {
                 break;
             }
@@ -187,16 +190,16 @@ abstract class CollectionWorker extends RestWorker {
      * Get a resource by its primary key.
      */
     void onGetResource(RestOperation op) {
-        var sql = "select * from " + this.tableName + " where " +
-            this.primaryKeyField + " = ?";
-        var statement = Globals.getDatabase().prepare(sql);
+        var sql = "select * from " + this.table.tableName + " where " +
+            this.table.primaryKey + " = ?";
+        var statement = getDatabase().prepare(sql);
         if (statement == null) {
             op.setErrorBody("database failed with status " +
-                Globals.getDatabase().getStatus());
+                getDatabase().getStatus());
             return;
         }
         statement.bindText(1, op.key);
-        var row = statement.nextRowJsonObject();
+        var row = this.table.nextRowJsonObject(statement);
         statement.finalize();
         if (row == null) {
             op.setErrorBody("resource " + op.key + " not found");
