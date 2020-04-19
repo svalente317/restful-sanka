@@ -1,0 +1,283 @@
+// -*- mode: Java; -*-
+package sanka.sqlite3;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+
+/**
+ * JsonTable fields can have the following types:
+ *
+ * JsonElement.BOOLEAN_TYPE. stored as an int in the db.
+ * JsonElement.INT_TYPE.
+ * JsonElement.DOUBLE_TYPE.
+ * JsonElement.STRING_TYPE. variable length. no max.
+ * JsonElement.ARRAY_TYPE.
+ *
+ * Unfortunately, for ARRAY_TYPE, we only support integer arrays.
+ * The data is converted to a string and stored in a text field in the db,
+ * and then converted back to an int array when read from the database.
+ */
+class FieldDesc {
+    String name;
+    int type;
+
+    FieldDesc(String name, int type) {
+        this.name = name;
+        this.type = type;
+    }
+}
+
+class JsonTable {
+    String tableName;
+    String primaryKey;
+    FieldDesc[] schema;
+
+    /**
+     * Define a schema for converting between Json data and Table data.
+     */
+    JsonTable(String tableName, String primaryKey, FieldDesc[] schema) {
+        this.tableName = tableName;
+        this.primaryKey = primaryKey;
+        this.schema = schema;
+    }
+
+    /**
+     * If the table does not exist in the database, then create it.
+     * If the table exists, then do nothing. (Should we verify and/or update
+     * the table schema?
+     */
+    int createTable(Database database, boolean autoincrement) {
+        var sql = "create table " + this.tableName;
+        var names = "";
+        var comma = "";
+        for (var field : this.schema) {
+            var typestr = null;
+            switch (field.type) {
+            case JsonElement.BOOLEAN_TYPE:
+            case JsonElement.INT_TYPE:
+                typestr = "integer";
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                typestr = "float";
+                break;
+            case JsonElement.STRING_TYPE:
+            case JsonElement.ARRAY_TYPE:
+                typestr = "text";
+                break;
+            }
+            var item = field.name + " " + typestr;
+            if (field.name == this.primaryKey) {
+                item = item + " primary key";
+                if (autoincrement) {
+                    item = item + " autoincrement";
+                }
+            }
+            names = names + comma + item;
+            comma = ",";
+        }
+        sql = sql + " (" + names + ")";
+        return database.execute(sql);
+    }
+
+    /**
+     * Insert a row into a table.
+     *
+     * If the JsonObject has fields that are not named in the table schema,
+     * or if any fields have incompatible types from the table schema, then
+     * ignore those fields.
+     *
+     * TODO Add a method to validate a JsonObject against a schema?
+     */
+    int insertRow(Database database, JsonObject obj) {
+        var sql = "insert into " + this.tableName;
+        var names = "";
+        var marks = "";
+        var comma = "";
+        for (var field : this.schema) {
+            names = names + comma + field.name;
+            marks = marks + comma + "?";
+            comma = ",";
+        }
+        sql = sql + " (" + names + ") values (" + marks + ")";
+        var statement = database.prepare(sql);
+        if (statement == null) {
+            return database.getStatus();
+        }
+        bindValues(statement, obj);
+        statement.step();
+        return statement.finalize();
+    }
+
+    /**
+     * Update a row in a table.
+     *
+     * Select the row with the primary key value specified in 'obj', and
+     * update all other fields to the non-null values specified there.
+     *
+     * This function will not update a non-null value to null.
+     *
+     * If 'current' is specified, then it has field values which must match
+     * the row's current values. If the row does not match some non-null
+     * value there, then the row will not be updated.
+     * This is the 'where' clause in the 'update' statement.
+     */
+    int updateRow(Database database, JsonObject obj, JsonObject current) {
+        var sql = "update " + this.tableName + " set ";
+        var comma = "";
+        for (var field : this.schema) {
+            sql = sql + comma + field.name + "=?";
+            comma = ",";
+        }
+        sql = sql + " where " + this.primaryKey + "=?";
+        // TODO use 'current'
+        var statement = database.prepare(sql);
+        if (statement == null) {
+            return database.getStatus();
+        }
+        bindValues(statement, obj);
+        bindValue(statement, this.schema.length+1, obj.get(this.primaryKey));
+        statement.step();
+        return statement.finalize();
+    }
+
+    /**
+     * Bind the values from 'obj' to 'statement' in order of this.schema.
+     */
+    private void bindValues(Statement statement, JsonObject obj) {
+        var idx = 1;
+        for (var field : this.schema) {
+            var value = obj.get(field.name);
+            if (value == null || value.type != field.type) {
+                statement.bindNull(idx);
+            } else {
+                bindValue(statement, idx, value);
+            }
+            idx++;
+        }
+    }
+
+    /**
+     * Convert value to DB representation and bind it.
+     */
+    private void bindValue(Statement statement, int idx, JsonElement value) {
+        switch (value.type) {
+        case JsonElement.BOOLEAN_TYPE:
+            statement.bindInt(idx, value.getAsBoolean() ? 1 : 0);
+            break;
+        case JsonElement.INT_TYPE:
+            statement.bindInt(idx, value.getAsLong());
+            break;
+        case JsonElement.DOUBLE_TYPE:
+            statement.bindDouble(idx, value.getAsDouble());
+            break;
+        case JsonElement.STRING_TYPE:
+            statement.bindText(idx, value.getAsString());
+            break;
+        case JsonElement.ARRAY_TYPE:
+            statement.bindText(idx, convertArray(value));
+            break;
+        }
+    }
+    
+    /**
+     * Write an integer array to the database as a string.
+     * Ignore all other types of arrays.
+     */
+    private String convertArray(JsonElement value) {
+        var elementArray = value.getAsArray();
+        if (elementArray == null) {
+            return null;
+        }
+        var text = "";
+        var comma = "";
+        for (var child : elementArray) {
+            if (child == null || child.type != JsonElement.INT_TYPE) {
+                return null;
+            }
+            text = text + comma + child.getAsInt();
+            comma = ",";
+        }
+        return text;
+    }
+
+    /**
+     * Return the next row as a JsonObject. Intepret the values as specified
+     * in this.schema.
+     *
+     * @return JsonObject with row fields and values, or null if there is
+     *         no more data, or if an error occurred.
+     */
+    JsonObject nextRowJsonObject(Statement stmt) {
+        if (stmt.step() != Statement.ROW) {
+            return null;
+        }
+        var count = stmt.columnCount();
+        if (count == 0) {
+            return null;
+        }
+        var obj = new JsonObject();
+        for (var idx = 0; idx < count; idx++) {
+            var fieldName = stmt.columnName(idx);
+            var fieldType = stmt.columnType(idx);
+            var type = getFieldType(fieldName);
+            switch (type) {
+            case JsonElement.BOOLEAN_TYPE:
+                if (fieldType == Statement.TYPE_INTEGER) {
+                    obj.setBoolean(fieldName, stmt.columnInt(idx) != 0);
+                }
+                break;
+            case JsonElement.INT_TYPE:
+                if (fieldType == Statement.TYPE_INTEGER) {
+                    obj.setLong(fieldName, stmt.columnLong(idx));
+                }
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                if (fieldType == Statement.TYPE_FLOAT) {
+                    obj.setDouble(fieldName, stmt.columnDouble(idx));
+                }
+                break;
+            case JsonElement.STRING_TYPE:
+                if (fieldType == Statement.TYPE_TEXT) {
+                    obj.setString(fieldName, stmt.columnText(idx));
+                }
+                break;
+            case JsonElement.ARRAY_TYPE:
+                if (fieldType == Statement.TYPE_TEXT) {
+                    var arr = convertToArray(stmt.columnText(idx));
+                    obj.setArray(fieldName, arr);
+                }
+                break;
+            }
+        }
+        return obj;
+    }
+
+    /**
+     * @return field type from schema
+     */
+    private int getFieldType(String name) {
+        for (var field : this.schema) {
+            if (field.name == name) {
+                return field.type;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * @return array of integer JsonElements
+     */
+    private JsonElement[] convertToArray(String text) {
+        var arr = new JsonElement[0];
+        var value = 0;
+        for (var ch : text) {
+            if (ch == ',') {
+                arr.add(new JsonElement().makeInt(value));
+                value = 0;
+            } else {
+                value = value*10 + (ch - '0');
+            }
+        }
+        arr.add(new JsonElement().makeInt(value));
+        return arr;
+    }
+}
