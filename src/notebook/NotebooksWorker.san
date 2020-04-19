@@ -30,7 +30,7 @@ class NotebooksWorker extends CollectionWorker {
             new FieldDesc("documentIds", JsonElement.ARRAY_TYPE),
             new FieldDesc("generation", JsonElement.INT_TYPE)
         };
-        setTableSchema("notebooks", "id", fields, true);
+        setTableSchema("notebooks", "id", true, fields);
     }
 
     /**

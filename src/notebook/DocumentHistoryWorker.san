@@ -25,6 +25,6 @@ class DocumentHistoryWorker extends CollectionWorker {
             new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
             new FieldDesc("generation", JsonElement.INT_TYPE)
         };
-        setTableSchema("documentHistory", "id", fields, true);
+        setTableSchema("documentHistory", "id", true, fields);
     }
 }

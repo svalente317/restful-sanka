@@ -32,7 +32,7 @@ class DocumentsWorker extends CollectionWorker {
             new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
             new FieldDesc("generation", JsonElement.INT_TYPE)
         };
-        setTableSchema("documents", "id", fields, true);
+        setTableSchema("documents", "id", true, fields);
     }
 
     /**

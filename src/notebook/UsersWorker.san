@@ -27,6 +27,6 @@ class UsersWorker extends CollectionWorker {
             new FieldDesc("fullName", JsonElement.STRING_TYPE),
             new FieldDesc("generation", JsonElement.INT_TYPE)
         };
-        setTableSchema("users", "id", fields, true);
+        setTableSchema("users", "id", true, fields);
     }
 }
