@@ -12,6 +12,7 @@ import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
 import sanka.rest.notebook.UsersWorker;
+import sanka.rest.storage.StorageWorker;
 
 /**
  * Start a REST server listening on port 8888.
@@ -62,6 +63,8 @@ class RestfulSanka {
                            new EchoWorker());
         processor.register(ReverseWorker.WORKER_PATH,
                            new ReverseWorker());
+        processor.register(StorageWorker.WORKER_PATH,
+                           new StorageWorker());
         processor.register(DocumentContentWorker.WORKER_PATH,
                            new DocumentContentWorker());
         processor.register(DocumentHistoryWorker.WORKER_PATH,

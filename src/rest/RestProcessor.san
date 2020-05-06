@@ -4,6 +4,7 @@ import sanka.http.Http;
 import sanka.http.HttpParser;
 import sanka.http.HttpRequest;
 import sanka.http.HttpResponse;
+import sanka.http.Query;
 import sanka.http.URL;
 import sanka.http.URLEncoder;
 
@@ -21,7 +22,7 @@ class RestProcessor {
     }
 
     void register(String path, RestWorker worker) {
-        worker.setRestProcessor(this);
+        worker.setRestProcessor(this, path);
         this.workerMap[path] = worker;
     }
 
@@ -30,7 +31,7 @@ class RestProcessor {
         var op = new RestOperation();
         op.method = request.method;
         op.path = url.path;
-        op.query = url.query;
+        op.query = url.query == null ? null : new Query(url.query);
         op.setRawBody(request.body);
         processOperation(op);
         response.status = op.status;

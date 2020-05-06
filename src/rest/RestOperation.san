@@ -4,6 +4,7 @@ import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
 import sanka.http.Http;
+import sanka.http.Query;
 import sanka.lang.Object;
 
 /**
@@ -38,7 +39,7 @@ class RestOperation {
     String method;
     String path;
     String key;
-    String query;
+    Query query;
     private byte[] body;
     private JsonObject jsonBody;
     int status;

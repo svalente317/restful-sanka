@@ -1,6 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.rest;
 import sanka.http.Http;
+import sanka.http.Query;
 import sanka.json.Serializable;
 
 /**
@@ -10,11 +11,17 @@ import sanka.json.Serializable;
  */
 abstract class RestWorker {
     private RestProcessor processor;
+    private String workerPath;
 
-    void setRestProcessor(RestProcessor processor) {
+    void setRestProcessor(RestProcessor processor, String workerPath) {
         this.processor = processor;
+        this.workerPath = workerPath;
     }
         
+    String getWorkerPath() {
+        return this.workerPath;
+    }
+
     boolean isCollection() {
         return false;
     }
@@ -32,14 +39,19 @@ abstract class RestWorker {
     }
 
     RestOperation send(String method, String path, Serializable body) {
-        System.println("send " + method + " to " + path);
         var op = new RestOperation();
         op.status = Http.OK;
         op.method = method;
         op.path = path;
         op.setBody(body);
+        sendOperation(op);
+        return op;
+    }
+
+    void sendOperation(RestOperation op) {
+        System.println("send " + op.method + " to " + op.path);
+        op.status = Http.OK;
         this.processor.processOperation(op);
         System.println("status=" + op.status);
-        return op;
     }
 }

@@ -232,7 +232,7 @@ abstract class CollectionWorker extends RestWorker {
     }
 
     Query getQueryForCollection(RestOperation op) {
-        return new Query(op.query);
+        return op.query;
     }
 
     boolean isValidQueryKey(String key) {
