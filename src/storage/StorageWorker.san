@@ -1,0 +1,271 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Query;
+import sanka.io.File;
+import sanka.io.FileReader;
+import sanka.io.FileWriter;
+import sanka.json.JsonObject;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+
+class StorageWorker extends RestWorker {
+    const WORKER_PATH = "/storage";
+
+    const ROOT_DIRECTORY = "/tmp/rest-storage";
+    const STORAGE_KEY = "storageKey";
+    const GENERATION = "generation";
+    const COLLECTION = ".collection";
+    const TRUE = "true";
+
+    const MAX_COLLECTION_TOTAL_SIZE = 16 * 1024 * 1024;
+
+    private LockManager lockManager;
+    private File rootDirectory;
+
+    StorageWorker() {
+        this.lockManager = new LockManager();
+        this.rootDirectory = new File(ROOT_DIRECTORY);
+        this.rootDirectory.mkdirs();
+    }
+
+    /**
+     * Write the given object to storage.
+     */
+    void onPost(RestOperation op) {
+        var obj = op.getJsonBody();
+        if (obj == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        var storageKey = obj.getString(STORAGE_KEY);
+        if (storageKey == null) {
+            op.setErrorBody("missing field: " + STORAGE_KEY);
+            return;
+        }
+        if (!validateKey(storageKey)) {
+            op.setErrorBody("invalid " + STORAGE_KEY);
+            return;
+        }
+        var generation = obj.getInt(GENERATION);
+        if (generation < 0) {
+            op.setErrorBody("invalid " + GENERATION);
+            return;
+        }
+        var threadId = getThreadId();
+        var status = this.lockManager.waitLock(storageKey, true, threadId);
+        if (status != LockManager.OK) {
+            op.setErrorBody("failed to lock key: " + storageKey);
+            return;
+        }
+        var failed = false;
+        var currentObj = readJsonObject(storageKey);
+        if (currentObj == null) {
+            if (generation == 0) {
+                obj.setInt(GENERATION, 1);
+            }
+        } else {
+            var currentGeneration = currentObj.getInt(GENERATION);
+            if (generation == 0) {
+                obj.setInt(GENERATION, currentGeneration+1);
+            } else if (generation <= currentGeneration) {
+                op.setErrorBody("invalid " + GENERATION +
+                    "current is " + currentGeneration);
+                failed = true;
+            }
+        }
+        if (!failed) {
+            writeJsonObject(storageKey, obj);
+            op.setJsonBody(obj);
+        }
+        this.lockManager.unlock(storageKey, true, threadId);
+    }
+
+    /**
+     * Read the queried object from storage.
+     */
+    void onGet(RestOperation op) {
+        var storageKey = null;
+        if (op.query != null) {
+            storageKey = op.query.getMap()[STORAGE_KEY];
+        }
+        if (storageKey == null) {
+            op.setErrorBody("missing query: " + STORAGE_KEY);
+            return;
+        }
+        if (!validateKey(storageKey)) {
+            op.setErrorBody("invalid " + STORAGE_KEY);
+            return;
+        }
+        if (op.query.getMap()[COLLECTION] == TRUE) {
+            onGetCollection(op, storageKey);
+            return;
+        }
+        var threadId = getThreadId();
+        var status = this.lockManager.waitLock(storageKey, false, threadId);
+        if (status != LockManager.OK) {
+            op.setErrorBody("failed to lock key: " + storageKey);
+            return;
+        }
+        var failed = false;
+        var bytes = readBytes(storageKey);
+        this.lockManager.unlock(storageKey, false, threadId);
+        if (bytes == null) {
+            op.setErrorBody("not found: " + storageKey);
+            return;
+        }
+        op.setRawBody(bytes);
+    }
+
+    /**
+     * Valid key:
+     * 1 or more components separated by slashes
+     * each component is 1 to 80 characters
+     * does not start or end with a slash
+     * component does not start with a dot
+     * alphanumerics, dash, dot, underscore
+     */
+    private boolean validateKey(String key) {
+        // TODO
+        return true;
+    }
+
+    /**
+     * Read the object stored under the given key, as raw data.
+     */
+    byte[] readBytes(String storageKey) {
+        var file = new File(this.rootDirectory, storageKey);
+        var reader = new FileReader();
+        if (reader.open(file.getPath()) != 0) {
+            return null;
+        }
+        return reader.readFile();
+    }
+
+    /**
+     * Read the object stored under the given key, as a JsonObject.
+     */
+    JsonObject readJsonObject(String storageKey) {
+        var bytes = readBytes(storageKey);
+        if (bytes == null) {
+            return null;
+        }
+        return JsonObject.parse(new String(bytes));
+    }
+
+    /**
+     * Write the given object to storage under the given key.
+     */
+    void writeJsonObject(String storageKey, JsonObject obj) {
+        var file = new File(this.rootDirectory, storageKey);
+        var writer = new FileWriter();
+        if (writer.open(file.getPath()) != 0) {
+            return;
+        }
+        writer.write(obj.toString().toByteArray());
+        writer.close();
+    }
+
+    /**
+     * Read a collection from storage. A collection is the direct children
+     * of a storage key; it does not recursively traverse the collection.
+     *
+     * This is intended to be used with relatively small resources.
+     * For example, it makes sense to read a collection of resources where
+     * each resource represents a book by title, author, etc., but without
+     * the book contents. So the entire response is limited to 16 MB.
+     *
+     * The response is a JsonObject with a field named "items" with a JsonArray
+     * of each resource as a JsonObject.
+     */
+    void onGetCollection(RestOperation op, String storageKey) {
+        // Check if the request is to filter the collection on any fields.
+        var queryMap = op.query.getMap();
+        queryMap.remove(STORAGE_KEY);
+        queryMap.remove(COLLECTION);
+
+        // Read the filenames from the filesystem. These are the files that
+        // we will try to read and return, even if files are added and removed
+        // in the directory after we start reading the files.
+        var directory = new File(this.rootDirectory, storageKey);
+        var filenames = directory.list();
+        if (filenames == null) {
+            filenames = new String[0];
+        }
+
+        // Lock the resources. I believe that this is safe from deadlock
+        // because these locks are shared, and because the worker never holds
+        // any other locks while it holds a single exclusive lock on anything.
+        var threadId = getThreadId();
+        var resourceKeys = new String[filenames.length];
+        var idx = 0;
+        for (var filename : filenames) {
+            var resourceKey = storageKey + "/" + filename;
+            var status = this.lockManager.waitLock(resourceKey, false, threadId);
+            if (status == LockManager.OK) {
+                resourceKeys[idx] = resourceKey;
+                idx++;
+            }
+        }
+        resourceKeys.setLength(idx);
+
+        // Read and unlock the resources.
+        var collection = new String[resourceKeys.length];
+        var totalSize = 0;
+        idx = 0;
+        for (var resourceKey : resourceKeys) {
+            var bytes = null;
+            var text = null;
+            if (totalSize < MAX_COLLECTION_TOTAL_SIZE) {
+                bytes = readBytes(resourceKey);
+            }
+            this.lockManager.unlock(resourceKey, false, threadId);
+            if (bytes != null) {
+                text = new String(bytes);
+                if (queryMap.size() > 0) {
+                    var jsonObject = JsonObject.parse(text);
+                    if (!filterMatch(jsonObject, queryMap)) {
+                        text = null;
+                    }
+                }
+            }
+            if (text != null) {
+                collection[idx] = text;
+                idx++;
+                totalSize = totalSize + bytes.length;
+            }
+        }
+        collection.setLength(idx);
+
+        // Build the response.
+        var body = "{\"items\":[";
+        var comma = "";
+        for (var text : collection) {
+            body = body + comma + text;
+            comma = ",";
+        }
+        body = body + "]}";
+        op.setRawBody(body.toByteArray());
+    }
+
+    /**
+     * @return true if the given object contains all of the queried fields
+     *         with all of the queried values.
+     */
+    private boolean filterMatch(JsonObject object, String[String] queryMap) {
+        for (var key, value : queryMap) {
+            var element = object.get(key);
+            if (element == null || element.toString() != value) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * threadId is simply any unique id LockManager uses to match a lock()
+     * request with an unlock() request.
+     */
+    private long getThreadId() {
+        return System.random(2147483647);
+    }
+}

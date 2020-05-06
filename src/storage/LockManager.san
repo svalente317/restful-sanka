@@ -1,0 +1,122 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.lang.Mutex;
+
+class LockState {
+    long[] writeQueue;
+    int readCount;
+    boolean drain;
+}
+
+/**
+ * Class to provide read (shared) locks and write (exclusive) locks on keys.
+ */
+class LockManager {
+    const MAX_QUEUE_SIZE = 8;
+
+    const OK = 0;
+    const TRY_AGAIN = 1;
+    const FAILED = 2;
+
+    private Mutex mutex;
+    private LockState[String] locks;
+
+    LockManager() {
+        this.mutex = new Mutex();
+        this.locks = new LockState[class String];
+    }
+
+    int lock(String key, boolean write, long threadId) {
+        var error = this.mutex.lock();
+        if (error != 0) {
+            return FAILED;
+        }
+        var result;
+        var state = this.locks[key];
+        if (state == null) {
+            state = new LockState();
+            this.locks[key] = state;
+        }
+        if (state.drain) {
+            result = FAILED;
+        } else {
+            if (write) {
+                result = (state.writeQueue == null && state.readCount == 0 ?
+                          OK : TRY_AGAIN);
+                if (state.writeQueue == null) {
+                    state.writeQueue = new long[]{threadId};
+                } else {
+                    state.writeQueue.add(threadId);
+                }
+            } else {
+                result = state.writeQueue == null ? OK : TRY_AGAIN;
+                state.readCount++;
+            }
+            // Count the number of threads currently reading this key or
+            // waiting for this key. Under normal operation, it should never
+            // reach MAX_QUEUE_SIZE. If this has happened, then it probably
+            // represents either a disk error or a bug. To try to limit the
+            // damage, do not accept any more requests for this key until
+            // the current queue is fully drained.
+            var count = state.writeQueue == null ? 0 : state.writeQueue.length;
+            if (count + state.readCount >= MAX_QUEUE_SIZE) {
+                state.drain = true;
+            }
+        }
+        this.mutex.unlock();
+        return result;
+    }
+
+    int unlock(String key, boolean write, long threadId) {
+        var error = this.mutex.lock();
+        if (error != 0) {
+            return FAILED;
+        }
+        var result;
+        var state = this.locks[key];
+        if (state == null) {
+            result = FAILED;
+        } else {
+            if (write) {
+                if (state.writeQueue == null) {
+                    result = FAILED;
+                } else {
+                    var found = false;
+                    for (var idx = 0; idx < state.writeQueue.length; idx++) {
+                        if (state.writeQueue[idx] == threadId) {
+                            if (state.writeQueue.length == 1) {
+                                state.writeQueue = null;
+                            } else {
+                                state.writeQueue.delete(idx, 1);
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    result = found ? OK : FAILED;
+                }
+            } else {
+                if (state.readCount == 0) {
+                    result = FAILED;
+                } else {
+                    state.readCount--;
+                    result = OK;
+                }
+            }
+            if (state.writeQueue == null && state.readCount == 0) {
+                this.locks.remove(key);
+            }
+        }
+        this.mutex.unlock();
+        return result;
+    }
+
+    /**
+     * Call lock(). If it says TRY_AGAIN, then sleep briefly and try again.
+     * Ultimately, this returns OK or FAILED.
+     */
+    int waitLock(String key, boolean write, long threadId) {
+        // TODO
+        return lock(key, write, threadId);
+    }
+}
