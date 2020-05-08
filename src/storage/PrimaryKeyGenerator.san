@@ -1,9 +1,0 @@
-// -*- mode: Java; -*-
-package sanka.rest.storage;
-
-singleton class PrimaryKeyGenerator {
-
-    String getKey(String prefix) {
-        return prefix + "17";
-    }
-}

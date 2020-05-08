@@ -1,0 +1,194 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
+
+/**
+ * CollectionWorker provides the infrastructure to manage a collection of
+ * REST resources.
+ */
+abstract class CollectionWorkerWithSave extends RestWorker {
+
+    private String primaryKeyField;
+    private String primaryKeyPrefix;
+
+    boolean isCollection() {
+        return true;
+    }
+
+    /**
+     * Turn on functionality to generate a new primary key identifier
+     * when a resource is posted to the collection.
+     */
+    void setPrimaryKeyGenerationPrefix(String value) {
+        this.primaryKeyPrefix = value;
+    }
+    
+    /**
+     * To create a new resource, post to the collection.
+     * To update an existing resource, post to [collection]/[key].
+     */
+    void onPost(RestOperation op) {
+        if (op.key != null) {
+            onPostResource(op);
+            return;
+        }
+        var obj = op.getJsonBody();
+        if (obj == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+
+        // Set the fields "storageKey" and "generation" for StorageWorker.
+        var keyElement;
+        if (this.primaryKeyPrefix != null) {
+            var key = generateKey();
+            keyElement = new JsonElement().makeString(key);
+            obj.set(this.primaryKeyField, keyElement);
+        } else {
+            keyElement = obj.get(this.primaryKeyField);
+            if (keyElement == null) {
+                op.setErrorBody("missing field: " + this.primaryKeyField);
+                return;
+            }
+        }
+        var storageKey = op.path + "/" + keyElement.toString();
+        obj.setString(StorageWorker.STORAGE_KEY, storageKey);
+        obj.setInt("generation", 1);
+        op.setJsonBody(obj);
+
+        // Allow specific worker to view and modify posted object.
+        var error = validatePost(op, null);
+        if (error != null) {
+            op.setErrorBody(error);
+            return;
+        }
+
+        // Post object to StorageWorker.
+        var storageOp = new RestOperation();
+        storageOp.method = Http.POST;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.setJsonBody(op.getJsonBody());
+        sendOperation(storageOp);
+        op.setFrom(storageOp);
+    }
+
+    /**
+     * Update a resource by its primary key.
+     */
+    void onPostResource(RestOperation op) {
+        var newObj = op.getJsonBody();
+        if (newObj == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+
+        // Get the current state of the specified resource.
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, op.path);
+        sendOperation(storageOp);
+        if (!storageOp.success()) {
+            op.setFrom(storageOp);
+            return;
+        }
+        var oldObj = storageOp.getJsonBody();
+
+        // Primary key does not need to be specified in the body, since
+        // it is specified in the URL and it cannot be changed.
+        newObj.set(this.primaryKeyField, oldObj.get(this.primaryKeyField));
+
+        // Set the fields "storageKey" and "generation" for StorageWorker.
+        newObj.setString(StorageWorker.STORAGE_KEY, op.path);
+        var newGeneration = newObj.getInt("generation");
+        var oldGeneration = oldObj.getInt("generation");
+        if (newGeneration == 0) {
+            newObj.setInt("generation", oldGeneration+1);
+        } else if (newGeneration <= oldGeneration) {
+            op.setErrorBody("generation is " + oldGeneration);
+            return;
+        }
+        op.setJsonBody(newObj);
+
+        // Allow specific worker to view and modify posted object.
+        var error = validatePost(op, oldObj);
+        if (error != null) {
+            op.setErrorBody(error);
+            return;
+        }
+
+        // Post object to StorageWorker.
+        storageOp = new RestOperation();
+        storageOp.method = Http.POST;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.setJsonBody(op.getJsonBody());
+        sendOperation(storageOp);
+        op.setFrom(storageOp);
+    }
+    
+    /**
+     * To get the whole collection, get to the collection.
+     * To get a single resource, get [collection]/[key].
+     */
+    void onGet(RestOperation op) {
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = op.query;
+        if (storageOp.query == null) {
+            storageOp.query = new Query();
+        }
+        var queryMap = storageOp.query.getMap();
+        queryMap[StorageWorker.STORAGE_KEY] = op.path;
+        queryMap[StorageWorker.COLLECTION] = StorageWorker.TRUE;
+        sendOperation(storageOp);
+        op.setFrom(storageOp);
+    }
+
+    /**
+     * TODO. Implement onDelete().
+     *
+    void onDelete(RestOperation op) {
+    */
+
+    /**
+     * Validate the given new resource. This may modify the posted data in
+     * the operation body. (Normalize fields, etc).
+     *
+     * If the post request should be aborted, then return an error string
+     * to be sent back to the caller.
+     *
+     * If the post should be continued, then return null.
+     */
+    String validatePost(RestOperation op, JsonObject oldObj) {
+        return null;
+    }
+
+    Query getQueryForCollection(RestOperation op) {
+        return op.query;
+    }
+
+    boolean isValidQueryKey(String key) {
+        // TODO verify valid field name
+        return true;
+    }
+
+    /**
+     * Use PrimaryKeyWorker. TODO make this private
+     */
+    String generateKey() {
+        var state = new PrimaryKeyPostState();
+        state.prefix = this.primaryKeyPrefix;
+        var op = send(Http.POST, PrimaryKeyWorker.WORKER_PATH, state);
+        if (op.success()) {
+            op.parseBody(state);
+        }
+        return state.key;
+    }
+}
