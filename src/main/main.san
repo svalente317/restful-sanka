@@ -12,6 +12,7 @@ import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
 import sanka.rest.notebook.UsersWorker;
+import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageWorker;
 
 /**
@@ -65,6 +66,8 @@ class RestfulSanka {
                            new ReverseWorker());
         processor.register(StorageWorker.WORKER_PATH,
                            new StorageWorker());
+        processor.register(PrimaryKeyWorker.WORKER_PATH,
+                           new PrimaryKeyWorker());
         processor.register(DocumentContentWorker.WORKER_PATH,
                            new DocumentContentWorker());
         processor.register(DocumentHistoryWorker.WORKER_PATH,
@@ -75,6 +78,7 @@ class RestfulSanka {
                            new NotebooksWorker());
         processor.register(UsersWorker.WORKER_PATH,
                            new UsersWorker());
+        processor.start();
         var server = new Server();
         server.listen(port, processor);
         if (database != null) {

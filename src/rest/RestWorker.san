@@ -26,6 +26,13 @@ abstract class RestWorker {
         return false;
     }
 
+    String[] getDependencies() {
+        return new String[0];
+    }
+
+    void onStart() {
+    }
+
     void onGet(RestOperation op) {
         op.setErrorBody("method not supported");
     }
@@ -40,7 +47,6 @@ abstract class RestWorker {
 
     RestOperation send(String method, String path, Serializable body) {
         var op = new RestOperation();
-        op.status = Http.OK;
         op.method = method;
         op.path = path;
         op.setBody(body);

@@ -1,0 +1,49 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.json.JsonObject;
+import sanka.json.Serializable;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+
+abstract class RestWorkerWithSave extends RestWorker {
+
+    String[] getDependencies() {
+        return new String[]{ StorageWorker.WORKER_PATH };
+    }
+
+    boolean load(Serializable object) {
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, getWorkerPath());
+        sendOperation(storageOp);
+        if (storageOp.success()) {
+            storageOp.parseBody(object);
+        }
+        return storageOp.success();
+    }
+
+    boolean save(Serializable object) {
+        var jsonObject = object.toJson();
+        jsonObject.setString(StorageWorker.STORAGE_KEY, getWorkerPath());
+        var storageOp = new RestOperation();
+        storageOp.method = Http.POST;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.setJsonBody(jsonObject);
+        sendOperation(storageOp);
+        return storageOp.success();
+    }
+
+    void onGet(RestOperation op) {
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, getWorkerPath());
+        sendOperation(storageOp);
+        op.setFrom(storageOp);
+    }
+}

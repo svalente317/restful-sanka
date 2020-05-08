@@ -16,14 +16,55 @@ import sanka.http.URLEncoder;
  */
 class RestProcessor {
     private RestWorker[String] workerMap;
+    private boolean[String] isStarted;
 
     RestProcessor() {
         this.workerMap = new RestWorker[class String];
+        this.isStarted = new boolean[class String];
     }
 
     void register(String path, RestWorker worker) {
         worker.setRestProcessor(this, path);
         this.workerMap[path] = worker;
+    }
+
+    void start() {
+        while (true) {
+            var startCount = 0;
+            for (var path, worker : this.workerMap) {
+                if (this.isStarted[path]) {
+                    continue;
+                }
+                var deps = worker.getDependencies();
+                if (!allStarted(deps)) {
+                    continue;
+                }
+                System.println("start " + path);
+                worker.onStart();
+                this.isStarted[path] = true;
+                startCount++;
+            }
+            System.println("startCount=" + startCount);
+            if (startCount == 0) {
+                break;
+            }
+        }
+        for (var path, worker : this.workerMap) {
+            if (!this.isStarted[path]) {
+                System.println("FAILED: " + path);
+            }
+        }
+    }
+
+    boolean allStarted(String[] deps) {
+        if (deps != null) {
+            for (var path : deps) {
+                if (!this.isStarted[path]) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     void process(HttpRequest request, HttpResponse response) {

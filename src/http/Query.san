@@ -14,6 +14,13 @@ class Query {
     }
 
     /**
+     * Create a container for key-value pairs to be added.
+     */
+    Query() {
+        this.map = new String[class String];
+    }
+    
+    /**
      * Get the query as a collection of decoded keys and values.
      */
     String[String] getMap() {
@@ -50,6 +57,13 @@ class Query {
     }
 
     /**
+     * Shortcut to update a single value in the map.
+     */
+    void set(String key, String value) {
+        getMap()[key] = value;
+    }
+
+    /**
      * Return the keys and values like key=value&key=value&
      * where the keys and values are URL encoded.
      */
@@ -57,7 +71,12 @@ class Query {
         if (this.map == null) {
             return this.text;
         }
-        // TODO unparse map to query string
-        return null;
+        var encoder = URLEncoder.get();
+        var text = "";
+        for (var key, value : this.map) {
+            text = (text + encoder.encode(key) + "=" +
+                    encoder.encode(value) + "&");
+        }
+        return text;
     }
 }
