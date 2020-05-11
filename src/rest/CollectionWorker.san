@@ -4,15 +4,17 @@ import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
 import sanka.http.Query;
-import sanka.sqlite3.Database;
 import sanka.sqlite3.FieldDesc;
+import sanka.sqlite3.JsonDatabase;
 import sanka.sqlite3.JsonTable;
+import sanka.sqlite3.JsonRowIterator;
 
 /**
  * CollectionWorker provides the infrastructure to manage a collection of
  * REST resources.
  */
 abstract class CollectionWorker extends RestWorker {
+    private JsonDatabase database;
     private JsonTable table;
 
     boolean isCollection() {
@@ -21,13 +23,10 @@ abstract class CollectionWorker extends RestWorker {
 
     void setTableSchema(String tableName, String primaryKey,
                         boolean autoincrement, FieldDesc[] schema) {
+        this.database = null; // TODO
         this.table = new JsonTable(
             tableName, primaryKey, autoincrement, schema);
-        this.table.createTable(getDatabase());
-    }
-
-    Database getDatabase() {
-        return Globals.getDatabase();
+        this.database.createTable(this.table);
     }
 
     /**
@@ -68,13 +67,13 @@ abstract class CollectionWorker extends RestWorker {
         }
         row = op.getJsonBody();
 
-        var status = this.table.insertRow(getDatabase(), row);
+        var status = this.database.insertRow(this.table, row);
         if (status != 0) {
             op.setErrorBody("post failed: db status " + status);
             return;
         }
         if (this.table.autoincrement) {
-            var id = getDatabase().getLastInsertRowId();
+            var id = 0; // TODO getDatabase().getLastInsertRowId();
             row.setLong(this.table.primaryKey, id);
             op.setJsonBody(row);
         }
@@ -89,20 +88,7 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody("invalid body");
             return;
         }
-
-        // Get the current state of the specified resource.
-        // This could be implemented using send(RestMethod.GET).
-        var sql = "select * from " + this.table.tableName + " where " +
-            this.table.primaryKey + " = ?";
-        var statement = getDatabase().prepare(sql);
-        if (statement == null) {
-            op.setErrorBody("database failed with status " +
-                getDatabase().getStatus());
-            return;
-        }
-        statement.bindText(1, op.key);
-        var oldRow = this.table.nextRowJsonObject(statement);
-        statement.finalize();
+        var oldRow = new JsonObject(); // TODO get op.key
         if (oldRow == null) {
             op.setErrorBody("resource " + op.key + " not found");
             return;
@@ -129,7 +115,7 @@ abstract class CollectionWorker extends RestWorker {
         }
         newRow = op.getJsonBody();
 
-        var status = this.table.updateRow(getDatabase(), newRow, null);
+        var status = this.database.updateRow(this.table, newRow, null);
         if (status != 0) {
             op.setErrorBody("update failed: db status " + status);
             return;
@@ -145,41 +131,15 @@ abstract class CollectionWorker extends RestWorker {
             onGetResource(op);
             return;
         }
-        var sql = "select * from " + this.table.tableName;
-        var values = null;
         if (op.query != null) {
             var query = getQueryForCollection(op);
-            var clause = "";
-            var separator = "";
-            for (var key, value : query.getMap()) {
-                if (isValidQueryKey(key)) {
-                    if (values == null) {
-                        values = new String[0];
-                    }
-                    clause = clause + separator + key + "=?";
-                    separator = " and ";
-                    values.add(value);
-                }
-            }
-            if (values != null) {
-                sql = sql + " where " + clause;
-            }
+            // TODO use query
         }
-        var statement = getDatabase().prepare(sql);
-        if (statement == null) {
-            op.setErrorBody("query failed with status " +
-                getDatabase().getStatus());
-            return;
-        }
-        if (values != null) {
-            for (var idx = 0; idx < values.length; idx++) {
-                statement.bindText(idx+1, values[idx]);
-            }
-        }
+        var iterator = new JsonRowIterator(null, null); // TODO all?
         var body = "{\"items\":[";
         var comma = "";
         while (true) {
-            var obj = this.table.nextRowJsonObject(statement);
+            var obj = iterator.next();
             if (obj == null) {
                 break;
             }
@@ -194,22 +154,7 @@ abstract class CollectionWorker extends RestWorker {
      * Get a resource by its primary key.
      */
     void onGetResource(RestOperation op) {
-        var sql = "select * from " + this.table.tableName + " where " +
-            this.table.primaryKey + " = ?";
-        var statement = getDatabase().prepare(sql);
-        if (statement == null) {
-            op.setErrorBody("database failed with status " +
-                getDatabase().getStatus());
-            return;
-        }
-        statement.bindText(1, op.key);
-        var row = this.table.nextRowJsonObject(statement);
-        statement.finalize();
-        if (row == null) {
-            op.setErrorBody("resource " + op.key + " not found");
-            return;
-        }
-        op.setJsonBody(row);
+        // TODO get op.key
     }
 
     /**

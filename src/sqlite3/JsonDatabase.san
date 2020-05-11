@@ -1,0 +1,227 @@
+// -*- mode: Java; -*-
+package sanka.sqlite3;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.json.JsonMember;
+
+/**
+ * JsonDatabase is an abstraction access an SQL database without SQL.
+ *
+ * To read and write rows in a table, create two raw data objects:
+ * (1) JsonTable object which describes the table schema
+ * (2) JsonObject object which describes the row to add to the table,
+ *     or the rows to select from the table.
+ *
+ * This class is the middle-man between this Json data and the database.
+ */
+class JsonDatabase {
+    private Database database;
+
+    JsonDatabase(Database database) {
+        this.database = database;
+    }
+
+    /**
+     * If the table does not exist in the database, then create it.
+     * If the table exists, then do nothing. (Should we verify and/or update
+     * the table schema?
+     */
+    int createTable(JsonTable table) {
+        var sql = "create table " + table.tableName;
+        var names = "";
+        var comma = "";
+        for (var field : table.schema) {
+            var typestr = null;
+            switch (field.type) {
+            case JsonElement.BOOLEAN_TYPE:
+            case JsonElement.INT_TYPE:
+                typestr = "integer";
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                typestr = "float";
+                break;
+            case JsonElement.STRING_TYPE:
+            case JsonElement.ARRAY_TYPE:
+                typestr = "text";
+                break;
+            }
+            var item = field.name + " " + typestr;
+            if (field.name == table.primaryKey) {
+                item = item + " primary key";
+                if (table.autoincrement) {
+                    item = item + " autoincrement";
+                }
+            }
+            names = names + comma + item;
+            comma = ",";
+        }
+        sql = sql + " (" + names + ")";
+        return this.database.execute(sql);
+    }
+
+    /**
+     * Insert a row into a table.
+     *
+     * If the JsonObject has fields that are not named in the table schema,
+     * or if any fields have incompatible types from the table schema, then
+     * ignore those fields.
+     */
+    int insertRow(JsonTable table, JsonObject obj) {
+        var sql = "insert into " + table.tableName;
+        var names = "";
+        var marks = "";
+        var comma = "";
+        for (var field : table.schema) {
+            if (field.name == table.primaryKey && table.autoincrement) {
+                continue;
+            }
+            names = names + comma + field.name;
+            marks = marks + comma + "?";
+            comma = ",";
+        }
+        sql = sql + " (" + names + ") values (" + marks + ")";
+        var statement = this.database.prepare(sql);
+        if (statement == null) {
+            return this.database.getStatus();
+        }
+        bindValues(table, statement, obj);
+        statement.step();
+        return statement.finalize();
+        // TODO update sql with generated key name
+    }
+
+    /**
+     * Update a row in a table.
+     *
+     * Select the row with the primary key value specified in 'obj', and
+     * update all other fields to the non-null values specified there.
+     *
+     * This function will not update a non-null value to null.
+     *
+     * If 'current' is specified, then it has field values which must match
+     * the row's current values. If the row does not match some non-null
+     * value there, then the row will not be updated.
+     */
+    int updateRow(JsonTable table, JsonObject obj, JsonObject current) {
+        var sql = "update " + table.tableName + " set ";
+        var comma = "";
+        for (var field : table.schema) {
+            if (field.name == table.primaryKey && table.autoincrement) {
+                continue;
+            }
+            sql = sql + comma + field.name + "=?";
+            comma = ",";
+        }
+        sql = sql + " where " + table.primaryKey + "=?";
+        // TODO use 'current'
+        var statement = this.database.prepare(sql);
+        if (statement == null) {
+            return this.database.getStatus();
+        }
+        var idx = bindValues(table, statement, obj);
+        bindValue(statement, idx, obj.get(table.primaryKey));
+        statement.step();
+        return statement.finalize();
+    }
+
+    /**
+     * Bind the values from 'obj' to 'statement' in order of table.schema.
+     */
+    private int bindValues(JsonTable table, Statement statement,
+                           JsonObject obj) {
+        var idx = 1;
+        for (var field : table.schema) {
+            if (field.name == table.primaryKey && table.autoincrement) {
+                continue;
+            }
+            var value = obj.get(field.name);
+            if (value == null || value.type != field.type) {
+                statement.bindNull(idx);
+            } else {
+                bindValue(statement, idx, value);
+            }
+            idx++;
+        }
+        return idx;
+    }
+
+    /**
+     * Convert value to DB representation and bind it.
+     */
+    private void bindValue(Statement statement, int idx, JsonElement value) {
+        switch (value.type) {
+        case JsonElement.NULL_TYPE:
+            statement.bindNull(idx);
+            break;
+        case JsonElement.BOOLEAN_TYPE:
+            statement.bindInt(idx, value.getAsBoolean() ? 1 : 0);
+            break;
+        case JsonElement.INT_TYPE:
+            statement.bindInt(idx, value.getAsLong());
+            break;
+        case JsonElement.DOUBLE_TYPE:
+            statement.bindDouble(idx, value.getAsDouble());
+            break;
+        case JsonElement.STRING_TYPE:
+            statement.bindText(idx, value.getAsString());
+            break;
+        case JsonElement.ARRAY_TYPE:
+            statement.bindText(idx, convertArray(value));
+            break;
+        }
+    }
+    
+    /**
+     * Write an integer array to the database as a string.
+     * Ignore all other types of arrays.
+     */
+    private String convertArray(JsonElement value) {
+        var elementArray = value.getAsArray();
+        if (elementArray == null) {
+            return null;
+        }
+        var text = "";
+        var comma = "";
+        for (var child : elementArray) {
+            if (child == null || child.type != JsonElement.INT_TYPE) {
+                return null;
+            }
+            text = text + comma + child.getAsInt();
+            comma = ",";
+        }
+        return text;
+    }
+
+    /**
+     * Select the rows in the table that match all of the fields in the
+     * object.
+     */
+    JsonRowIterator selectRows(JsonTable table, JsonObject obj) {
+        var sql = "select * from " + table.tableName;
+        var values = new JsonElement[0];
+        var clause = "";
+        var separator = "";
+        if (obj != null) {
+            for (var member : obj.getMembers()) {
+                if (table.getFieldType(member.key) <= 0) {
+                    continue;
+                }
+                clause = clause + separator + member.key + "=?";
+                separator = " and ";
+                values.add(member.value);
+            }
+            if (values.length == 0) {
+                return null;
+            }
+            sql = sql + " where " + clause;
+        }
+        var statement = this.database.prepare(sql);
+        if (statement == null) {
+            return null;
+        }
+        for (var idx = 0; idx < values.length; idx++) {
+            bindValue(statement, idx+1, values[idx]);
+        }
+        return new JsonRowIterator(table, statement);
+    }
+}

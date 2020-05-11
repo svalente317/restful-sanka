@@ -1,0 +1,111 @@
+// -*- mode: Java; -*-
+package sanka.sqlite3;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+
+class JsonRowIterator {
+    private JsonTable table;
+    private Statement statement;
+    private JsonObject peekObj;
+    private boolean peekEnd;
+
+    JsonRowIterator(JsonTable table, Statement statement) {
+        this.table = table;
+        this.statement = statement;
+    }
+    
+    boolean hasNext() {
+        if (this.peekObj != null) {
+            return true;
+        }
+        if (this.peekEnd) {
+            return false;
+        }
+        this.peekObj = internalNext();
+        this.peekEnd = (this.peekObj == null);
+        return !this.peekEnd;
+    }
+
+    /**
+     * Return the next row as a JsonObject. Intepret the values as specified
+     * in table.schema.
+     *
+     * @return JsonObject with row fields and values, or null if there is
+     *         no more data, or if an error occurred.
+     */
+    JsonObject next() {
+        if (this.peekObj != null) {
+            var retval = this.peekObj;
+            this.peekObj = null;
+            return retval;
+        }
+        if (this.peekEnd) {
+            return null;
+        }
+        return internalNext();
+    }
+
+    private JsonObject internalNext() {
+        var stmt = this.statement;
+        if (stmt.step() != Statement.ROW) {
+            return null;
+        }
+        var count = stmt.columnCount();
+        if (count == 0) {
+            return null;
+        }
+        var obj = new JsonObject();
+        for (var idx = 0; idx < count; idx++) {
+            var fieldName = stmt.columnName(idx);
+            var fieldType = stmt.columnType(idx);
+            var type = this.table.getFieldType(fieldName);
+            switch (type) {
+            case JsonElement.BOOLEAN_TYPE:
+                if (fieldType == Statement.TYPE_INTEGER) {
+                    obj.setBoolean(fieldName, stmt.columnInt(idx) != 0);
+                }
+                break;
+            case JsonElement.INT_TYPE:
+                if (fieldType == Statement.TYPE_INTEGER) {
+                    obj.setLong(fieldName, stmt.columnLong(idx));
+                }
+                break;
+            case JsonElement.DOUBLE_TYPE:
+                if (fieldType == Statement.TYPE_FLOAT) {
+                    obj.setDouble(fieldName, stmt.columnDouble(idx));
+                }
+                break;
+            case JsonElement.STRING_TYPE:
+                if (fieldType == Statement.TYPE_TEXT) {
+                    obj.setString(fieldName, stmt.columnText(idx));
+                }
+                break;
+            case JsonElement.ARRAY_TYPE:
+                if (fieldType == Statement.TYPE_TEXT) {
+                    var arr = convertToArray(stmt.columnText(idx));
+                    obj.setArray(fieldName, arr);
+                }
+                break;
+            }
+        }
+        return obj;
+    }
+
+    /**
+     * @return array of integer JsonElements
+     */
+    private JsonElement[] convertToArray(String text) {
+        var arr = new JsonElement[0];
+        var value = 0;
+        for (var ch : text) {
+            if (ch == ',') {
+                arr.add(new JsonElement().makeInt(value));
+                value = 0;
+            } else {
+                value = value*10 + (ch - '0');
+            }
+        }
+        arr.add(new JsonElement().makeInt(value));
+        return arr;
+    }
+}
