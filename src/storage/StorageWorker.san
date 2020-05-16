@@ -12,6 +12,7 @@ class StorageWorker extends RestWorker {
     const WORKER_PATH = "/storage";
 
     const ROOT_DIRECTORY = "/tmp/rest-storage";
+    const STAGE_DIRECTORY = ".stage";
     const STORAGE_KEY = "storageKey";
     const GENERATION = "generation";
     const COLLECTION = ".collection";
@@ -21,11 +22,14 @@ class StorageWorker extends RestWorker {
 
     private LockManager lockManager;
     private File rootDirectory;
+    private File stageDirectory;
 
     StorageWorker() {
         this.lockManager = new LockManager();
         this.rootDirectory = new File(ROOT_DIRECTORY);
         this.rootDirectory.mkdirs();
+        this.stageDirectory = new File(this.rootDirectory, STAGE_DIRECTORY);
+        this.stageDirectory.mkdirs();
     }
 
     /**
@@ -155,14 +159,16 @@ class StorageWorker extends RestWorker {
      * Write the given object to storage under the given key.
      */
     void writeJsonObject(String storageKey, JsonObject obj) {
-        var file = new File(this.rootDirectory, storageKey);
-        file.getParent().mkdirs();
+        var file = new File(this.stageDirectory, System.randomUuid());
         var writer = new FileWriter();
         if (writer.open(file.getPath()) != 0) {
             return;
         }
         writer.write(obj.toString().toByteArray());
         writer.close();
+        var destFile = new File(this.rootDirectory, storageKey);
+        destFile.getParent().mkdirs();
+        file.renameTo(destFile);
     }
 
     /**

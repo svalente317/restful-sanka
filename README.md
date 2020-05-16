@@ -71,14 +71,15 @@ curl -s http://localhost:8888/echo | json_reformat
 }
 ```
 The simple source code for this simple microservice is in
-`src/workers/EchoWorker.san`.
+[src/examples/EchoWorker.san](src/examples/EchoWorker.san).
 
 ### Complex Example
 
 Restful Sanka makes it easy to build microservices on top of other
 microservices. The most simple example is
-"ReverseWorker". ReverseWorker gets the current state of the
-EchoWorker, and it reverses the "content" field. For example:
+[src/examples/ReverseWorker.san](ReverseWorker).
+ReverseWorker gets the current state of the EchoWorker, and it reverses
+the "content" field. For example:
 ```
 curl -s http://localhost:8888/reverse | json_reformat 
 {
@@ -130,7 +131,7 @@ Define one of the fields as the primary key. For example, for our
 collection of users, we define "username" as the primary key.
 
 Then, create a RestWorker that extends `CollectionWorker`. For example,
-see `src/examples/UsersWorker.san`.
+see [src/examples/UsersWorker.san](src/examples/UsersWorker.san).
 
 CollectionWorker supports these operations:
 * Add a resource: POST to the collection
@@ -149,9 +150,9 @@ curl -s http://localhost:8888/users | json_reformat
 {
     "items": [
         {
+            "username": "bob",
             "fullName": "Bob Hacker",
-            "generation": 1,
-            "username": "bob"
+            "generation": 1
         }
     ]
 }
@@ -160,9 +161,9 @@ Or get just the resource with the primary key "bob":
 ```
 curl -s http://localhost:8888/users/bob | json_reformat
 {
+    "username": "bob",
     "fullName": "Bob Hacker",
-    "generation": 1,
-    "username": "bob"
+    "generation": 1
 }
 ```
 Then update the existing resource:
@@ -173,9 +174,9 @@ And get the updated resource:
 ```
 curl -s http://localhost:8888/users/bob | json_reformat
 {
+    "username": "bob",
     "fullName": "Bob Q. Hacker",
-    "generation": 2,
-    "username": "bob"
+    "generation": 2
 }
 ```
 Finally, delete the resource:
