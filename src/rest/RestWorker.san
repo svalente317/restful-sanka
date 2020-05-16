@@ -56,6 +56,10 @@ abstract class RestWorker {
 
     void sendOperation(RestOperation op) {
         System.println("send " + op.method + " to " + op.path);
+        var b = op.getBody();
+        if (b != null) {
+            System.println(new String(b));
+        }
         op.status = Http.OK;
         this.processor.processOperation(op);
         System.println("status=" + op.status);

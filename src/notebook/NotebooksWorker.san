@@ -6,17 +6,21 @@ import sanka.rest.RestOperation;
 import sanka.rest.storage.CollectionWorker;
 
 serializable class NotebookState {
-    int id;
+    String id;
     int userId;
     String name;
     long created;
     long lastUpdate;
-    int[] documentIds;
-    int generation;
+    String[] documentIds;
 }
 
 class NotebooksWorker extends CollectionWorker {
     const WORKER_PATH = "/notebooks";
+
+    NotebooksWorker() {
+        setPrimaryKeyField("id");
+        setPrimaryKeyGenerationPrefix("nb");
+    }
 
     /**
      * To create a new notebook, create a new front page.
@@ -30,13 +34,13 @@ class NotebooksWorker extends CollectionWorker {
             return "missing field: name";
         }
         var id = createDocument();
-        if (id <= 0) {
+        if (id == null) {
             return "failed to create document";
         }
         state.userId = op.userId;
         state.created = System.currentTimeMillis();
         state.lastUpdate = state.created;
-        state.documentIds = new int[]{ id };
+        state.documentIds = new String[]{ id };
         op.setBody(state);
         return null;
     }
@@ -68,22 +72,22 @@ class NotebooksWorker extends CollectionWorker {
             op.setBody(state);
             return null;
         }
-        var currentIds = new boolean[class int];
+        var currentIds = new boolean[class String];
         for (var documentId : current.documentIds) {
             currentIds[documentId] = true;
         }
         for (var idx = 0; idx < state.documentIds.length; idx++) {
             var id = state.documentIds[idx];
-            if (id > 0 && currentIds.remove(id)) {
-                continue;
-            }
-            if (id == 0) {
+            if (id == "") {
                 id = createDocument();
-                if (id <= 0) {
+                if (id == null) {
                     return "failed to create document";
                 }
                 state.documentIds[idx] = id;
             } else {
+                if (currentIds.remove(id)) {
+                    continue;
+                }
                 if (!validateDocument(id, op.userId)) {
                     return "illegal document specified in notebook";
                 }
@@ -97,11 +101,11 @@ class NotebooksWorker extends CollectionWorker {
     /**
      * Post to DocumentsWorker and return new document id.
      */
-    private int createDocument() {
+    private String createDocument() {
         var docState = new DocumentState();
         var op = send(Http.POST, DocumentsWorker.WORKER_PATH, docState);
         if (!op.success()) {
-            return 0;
+            return null;
         }
         op.parseBody(docState);
         return docState.id;
@@ -111,7 +115,7 @@ class NotebooksWorker extends CollectionWorker {
      * Validate that the given documentId exists and is owned by the current
      * user.
      */
-    private boolean validateDocument(int id, int userId) {
+    private boolean validateDocument(String id, int userId) {
         var path = DocumentsWorker.WORKER_PATH + "/" + id;
         var op = send(Http.GET, DocumentsWorker.WORKER_PATH, null);
         if (!op.success()) {

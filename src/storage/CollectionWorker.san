@@ -46,12 +46,12 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody("invalid body");
             return;
         }
-
-        // Set the fields "storageKey" and "generation" for StorageWorker.
+        // Set or validate primary key.
         var key = null;
         if (this.primaryKeyPrefix != null) {
             key = generateKey();
             obj.setString(this.primaryKeyField, key);
+            op.setJsonBody(obj);
         } else {
             var keyElement = obj.get(this.primaryKeyField);
             if (keyElement == null) {
@@ -61,23 +61,22 @@ abstract class CollectionWorker extends RestWorker {
             key = keyElement.type == JsonElement.STRING_TYPE ?
                 keyElement.getAsString() : keyElement.toString();
         }
-        var storageKey = op.path + "/" + key;
-        obj.setString(StorageWorker.STORAGE_KEY, storageKey);
-        obj.setInt("generation", 1);
-        op.setJsonBody(obj);
-
         // Allow specific worker to view and modify posted object.
         var error = validatePost(op, null);
         if (error != null) {
             op.setErrorBody(error);
             return;
         }
+        // Set the fields "storageKey" and "generation" for StorageWorker.
+        obj = op.getJsonBody();
+        obj.setString(StorageWorker.STORAGE_KEY, op.path + "/" + key);
+        obj.setInt("generation", 1);
 
         // Post object to StorageWorker.
         var storageOp = new RestOperation();
         storageOp.method = Http.POST;
         storageOp.path = StorageWorker.WORKER_PATH;
-        storageOp.setJsonBody(op.getJsonBody());
+        storageOp.setJsonBody(obj);
         sendOperation(storageOp);
         op.setFrom(storageOp);
     }
@@ -91,7 +90,6 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody("invalid body");
             return;
         }
-
         // Get the current state of the specified resource.
         var storageOp = new RestOperation();
         storageOp.method = Http.GET;
@@ -108,18 +106,17 @@ abstract class CollectionWorker extends RestWorker {
         // Primary key does not need to be specified in the body, since
         // it is specified in the URL and it cannot be changed.
         newObj.set(this.primaryKeyField, oldObj.get(this.primaryKeyField));
+        op.setJsonBody(newObj);
 
-        // Set the fields "storageKey" and "generation" for StorageWorker.
-        newObj.setString(StorageWorker.STORAGE_KEY, op.path);
+        // Generation check.
         var newGeneration = newObj.getInt("generation");
         var oldGeneration = oldObj.getInt("generation");
         if (newGeneration == 0) {
-            newObj.setInt("generation", oldGeneration+1);
+            newGeneration = oldGeneration+1;
         } else if (newGeneration <= oldGeneration) {
             op.setErrorBody("generation is " + oldGeneration);
             return;
         }
-        op.setJsonBody(newObj);
 
         // Allow specific worker to view and modify posted object.
         var error = validatePost(op, oldObj);
@@ -127,6 +124,10 @@ abstract class CollectionWorker extends RestWorker {
             op.setErrorBody(error);
             return;
         }
+        // Set the fields "storageKey" and "generation" for StorageWorker.
+        newObj = op.getJsonBody();
+        newObj.setString(StorageWorker.STORAGE_KEY, op.path);
+        newObj.setInt("generation", newGeneration);
 
         // Post object to StorageWorker.
         storageOp = new RestOperation();

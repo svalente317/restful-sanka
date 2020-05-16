@@ -6,11 +6,10 @@ import sanka.rest.RestOperation;
 import sanka.rest.storage.CollectionWorker;
 
 serializable class DocumentState {
-    int id;
+    String id;
     int userId;
     String filename;
     long lastUpdate;
-    int generation;
 }
 
 class DocumentsWorker extends CollectionWorker {
@@ -21,6 +20,11 @@ class DocumentsWorker extends CollectionWorker {
     const SESSION_TIME = 5 * 60 * 1000;
 
     const DOCUMENT_ROOT = "/tmp/";
+
+    DocumentsWorker() {
+        setPrimaryKeyField("id");
+        setPrimaryKeyGenerationPrefix("d");
+    }
 
     /**
      * DocumentsWorker ignores all user input. It simply decides when to
