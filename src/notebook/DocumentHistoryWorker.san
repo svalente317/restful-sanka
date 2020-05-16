@@ -1,8 +1,6 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
-import sanka.json.JsonElement;
-import sanka.rest.CollectionWorker;
-import sanka.sqlite3.FieldDesc;
+import sanka.rest.storage.CollectionWorker;
 
 serializable class DocumentHistoryState {
     int id;
@@ -15,16 +13,4 @@ serializable class DocumentHistoryState {
 
 class DocumentHistoryWorker extends CollectionWorker {
     const WORKER_PATH = "/documentHistory";
-
-    DocumentHistoryWorker() {
-        var fields = new FieldDesc[]{
-            new FieldDesc("id", JsonElement.INT_TYPE),
-            new FieldDesc("documentId", JsonElement.INT_TYPE),
-            new FieldDesc("userId", JsonElement.INT_TYPE),
-            new FieldDesc("filename", JsonElement.STRING_TYPE),
-            new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
-            new FieldDesc("generation", JsonElement.INT_TYPE)
-        };
-        setTableSchema("documentHistory", "id", true, fields);
-    }
 }

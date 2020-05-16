@@ -10,10 +10,10 @@ import sanka.sqlite3.JsonTable;
 import sanka.sqlite3.JsonRowIterator;
 
 /**
- * CollectionWorker provides the infrastructure to manage a collection of
+ * DbCollectionWorker provides the infrastructure to manage a collection of
  * REST resources.
  */
-abstract class CollectionWorker extends RestWorker {
+abstract class DbCollectionWorker extends RestWorker {
     private JsonDatabase database;
     private JsonTable table;
 

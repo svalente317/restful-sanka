@@ -30,7 +30,7 @@ class PrimaryKeyWorker extends RestWorkerWithSave {
      * state of 501 through 599, but they don't matter. We start generating
      * new keys with 600.
      */
-    const SAVE_FREQUENCY = 10;
+    const SAVE_FREQUENCY = 100;
 
     private long currentValue;
     private Mutex mutex;

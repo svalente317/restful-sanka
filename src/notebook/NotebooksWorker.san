@@ -1,11 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
 import sanka.http.Http;
-import sanka.json.JsonElement;
 import sanka.json.JsonObject;
-import sanka.rest.CollectionWorker;
 import sanka.rest.RestOperation;
-import sanka.sqlite3.FieldDesc;
+import sanka.rest.storage.CollectionWorker;
 
 serializable class NotebookState {
     int id;
@@ -19,19 +17,6 @@ serializable class NotebookState {
 
 class NotebooksWorker extends CollectionWorker {
     const WORKER_PATH = "/notebooks";
-
-    NotebooksWorker() {
-        var fields = new FieldDesc[]{
-            new FieldDesc("id", JsonElement.INT_TYPE),
-            new FieldDesc("userId", JsonElement.INT_TYPE),
-            new FieldDesc("name", JsonElement.STRING_TYPE),
-            new FieldDesc("created", JsonElement.INT_TYPE),
-            new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
-            new FieldDesc("documentIds", JsonElement.ARRAY_TYPE),
-            new FieldDesc("generation", JsonElement.INT_TYPE)
-        };
-        setTableSchema("notebooks", "id", true, fields);
-    }
 
     /**
      * To create a new notebook, create a new front page.

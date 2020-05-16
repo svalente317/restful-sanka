@@ -11,13 +11,17 @@ import sanka.rest.RestWorker;
  * CollectionWorker provides the infrastructure to manage a collection of
  * REST resources.
  */
-abstract class CollectionWorkerWithSave extends RestWorker {
+abstract class CollectionWorker extends RestWorker {
 
     private String primaryKeyField;
     private String primaryKeyPrefix;
 
     boolean isCollection() {
         return true;
+    }
+
+    void setPrimaryKeyField(String value) {
+        this.primaryKeyField = value;
     }
 
     /**
@@ -44,19 +48,20 @@ abstract class CollectionWorkerWithSave extends RestWorker {
         }
 
         // Set the fields "storageKey" and "generation" for StorageWorker.
-        var keyElement;
+        var key = null;
         if (this.primaryKeyPrefix != null) {
-            var key = generateKey();
-            keyElement = new JsonElement().makeString(key);
-            obj.set(this.primaryKeyField, keyElement);
+            key = generateKey();
+            obj.setString(this.primaryKeyField, key);
         } else {
-            keyElement = obj.get(this.primaryKeyField);
+            var keyElement = obj.get(this.primaryKeyField);
             if (keyElement == null) {
                 op.setErrorBody("missing field: " + this.primaryKeyField);
                 return;
             }
+            key = keyElement.type == JsonElement.STRING_TYPE ?
+                keyElement.getAsString() : keyElement.toString();
         }
-        var storageKey = op.path + "/" + keyElement.toString();
+        var storageKey = op.path + "/" + key;
         obj.setString(StorageWorker.STORAGE_KEY, storageKey);
         obj.setInt("generation", 1);
         op.setJsonBody(obj);
@@ -144,18 +149,30 @@ abstract class CollectionWorkerWithSave extends RestWorker {
         if (storageOp.query == null) {
             storageOp.query = new Query();
         }
-        var queryMap = storageOp.query.getMap();
-        queryMap[StorageWorker.STORAGE_KEY] = op.path;
-        queryMap[StorageWorker.COLLECTION] = StorageWorker.TRUE;
+        storageOp.query.set(StorageWorker.STORAGE_KEY, op.path);
+        if (op.key == null) {
+            storageOp.query.set(StorageWorker.COLLECTION, StorageWorker.TRUE);
+        }
         sendOperation(storageOp);
         op.setFrom(storageOp);
     }
 
     /**
-     * TODO. Implement onDelete().
-     *
+     * Delete a resource specified by primary key.
+     */
     void onDelete(RestOperation op) {
-    */
+        if (op.key == null) {
+            op.setErrorBody("missing key for delete");
+            return;
+        }
+        var storageOp = new RestOperation();
+        storageOp.method = Http.DELETE;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, op.path);
+        sendOperation(storageOp);
+        op.setFrom(storageOp);
+    }
 
     /**
      * Validate the given new resource. This may modify the posted data in

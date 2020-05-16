@@ -98,8 +98,7 @@ class RestProcessor {
             }
         }
         if (worker == null) {
-            op.setErrorBody("path not found: " +
-                URLEncoder.get().encode(path));
+            op.setErrorBody("not found: " + URLEncoder.get().encode(path));
             op.status = Http.NOT_FOUND;
             return;
         }

@@ -69,7 +69,7 @@ class StorageWorker extends RestWorker {
                 obj.setInt(GENERATION, currentGeneration+1);
             } else if (generation <= currentGeneration) {
                 op.setErrorBody("invalid " + GENERATION +
-                    "current is " + currentGeneration);
+                    ". current is " + currentGeneration);
                 failed = true;
             }
         }
@@ -106,7 +106,6 @@ class StorageWorker extends RestWorker {
             op.setErrorBody("failed to lock key: " + storageKey);
             return;
         }
-        var failed = false;
         var bytes = readBytes(storageKey);
         this.lockManager.unlock(storageKey, false, threadId);
         if (bytes == null) {
@@ -157,6 +156,7 @@ class StorageWorker extends RestWorker {
      */
     void writeJsonObject(String storageKey, JsonObject obj) {
         var file = new File(this.rootDirectory, storageKey);
+        file.getParent().mkdirs();
         var writer = new FileWriter();
         if (writer.open(file.getPath()) != 0) {
             return;
@@ -259,6 +259,43 @@ class StorageWorker extends RestWorker {
             }
         }
         return true;
+    }
+
+    /**
+     * Delete an object from storage.
+     */
+    void onDelete(RestOperation op) {
+
+        // After deleting the storageKey, if a new item is posted with this
+        // key, it will start over at generation 1 again. This could
+        // unintended effects. Of course, when a collection worker uses
+        // auto-generated primary keys, it will never reuse a deleted key.
+
+        var storageKey = null;
+        if (op.query != null) {
+            storageKey = op.query.getMap()[STORAGE_KEY];
+        }
+        if (storageKey == null) {
+            op.setErrorBody("missing query: " + STORAGE_KEY);
+            return;
+        }
+        if (!validateKey(storageKey)) {
+            op.setErrorBody("invalid " + STORAGE_KEY);
+            return;
+        }
+        var threadId = getThreadId();
+        var status = this.lockManager.waitLock(storageKey, false, threadId);
+        if (status != LockManager.OK) {
+            op.setErrorBody("failed to lock key: " + storageKey);
+            return;
+        }
+        var file = new File(this.rootDirectory, storageKey);
+        var deleted = file.delete();
+        this.lockManager.unlock(storageKey, false, threadId);
+        if (!deleted) {
+            op.setErrorBody("not found: " + storageKey);
+            return;
+        }
     }
 
     /**

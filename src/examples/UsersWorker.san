@@ -1,0 +1,20 @@
+// -*- mode: Java; -*-
+package sanka.rest.examples;
+import sanka.rest.storage.CollectionWorker;
+
+serializable class UserState {
+    String username;
+    String password;
+    String fullName;
+}
+
+/**
+ * UsersWorker manages a collection of users.
+ */
+class UsersWorker extends CollectionWorker {
+    const WORKER_PATH = "/users";
+
+    UsersWorker() {
+        setPrimaryKeyField("username");
+    }
+}

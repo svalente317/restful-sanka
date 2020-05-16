@@ -1,11 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
 import sanka.http.Http;
-import sanka.json.JsonElement;
 import sanka.json.JsonObject;
-import sanka.rest.CollectionWorker;
 import sanka.rest.RestOperation;
-import sanka.sqlite3.FieldDesc;
+import sanka.rest.storage.CollectionWorker;
 
 serializable class DocumentState {
     int id;
@@ -23,17 +21,6 @@ class DocumentsWorker extends CollectionWorker {
     const SESSION_TIME = 5 * 60 * 1000;
 
     const DOCUMENT_ROOT = "/tmp/";
-
-    DocumentsWorker() {
-        var fields = new FieldDesc[]{
-            new FieldDesc("id", JsonElement.INT_TYPE),
-            new FieldDesc("userId", JsonElement.INT_TYPE),
-            new FieldDesc("filename", JsonElement.STRING_TYPE),
-            new FieldDesc("lastUpdate", JsonElement.INT_TYPE),
-            new FieldDesc("generation", JsonElement.INT_TYPE)
-        };
-        setTableSchema("documents", "id", true, fields);
-    }
 
     /**
      * DocumentsWorker ignores all user input. It simply decides when to

@@ -116,7 +116,17 @@ class LockManager {
      * Ultimately, this returns OK or FAILED.
      */
     int waitLock(String key, boolean write, long threadId) {
-        // TODO
-        return lock(key, write, threadId);
+        // Start with a wait time of 1 millisecond. Keep falling back
+        // until we get to, let's say, 10 seconds.
+        var period = 1;
+        while (period < 10000) {
+            var status = lock(key, write, threadId);
+            if (status != TRY_AGAIN) {
+                return status;
+            }
+            System.sleep(period);
+            period = period * 2;
+        }
+        return FAILED;
     }
 }
