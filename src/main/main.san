@@ -12,6 +12,7 @@ import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
 import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageWorker;
+import sanka.rest.storage.StorageReceiverWorker;
 
 /**
  * Start a REST server listening on port 8888.
@@ -42,6 +43,8 @@ class RestfulSanka {
         var processor = new RestProcessor();
         processor.register(StorageWorker.WORKER_PATH,
                            new StorageWorker());
+        processor.register(StorageReceiverWorker.WORKER_PATH,
+                           new StorageReceiverWorker());
         processor.register(PrimaryKeyWorker.WORKER_PATH,
                            new PrimaryKeyWorker());
         processor.register(EchoWorker.WORKER_PATH,

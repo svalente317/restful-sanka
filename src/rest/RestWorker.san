@@ -61,6 +61,7 @@ abstract class RestWorker {
             System.println(new String(b));
         }
         op.status = Http.OK;
+        op.source = getWorkerPath();
         this.processor.processOperation(op);
         System.println("status=" + op.status);
     }

@@ -43,6 +43,7 @@ class RestOperation {
     private byte[] body;
     private JsonObject jsonBody;
     int status;
+    String source;
 
     boolean success() {
         return this.status == Http.OK;

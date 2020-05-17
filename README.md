@@ -76,8 +76,8 @@ The simple source code for this simple microservice is in
 ### Complex Example
 
 Restful Sanka makes it easy to build microservices on top of other
-microservices. The most simple example is
-[src/examples/ReverseWorker.san](ReverseWorker).
+microservices. The most simple example is [ReverseWorker]
+(src/examples/ReverseWorker.san).
 ReverseWorker gets the current state of the EchoWorker, and it reverses
 the "content" field. For example:
 ```

@@ -1,0 +1,58 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Http;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+
+/**
+ * This worker receives storage updates that have already been applied on
+ * peer system, and it writes them to storage here.
+ *
+ * This may be enhanced to accept batched and/or compressed updates.
+ */
+class StorageReceiverWorker extends RestWorker {
+    const WORKER_PATH = "/storage-receiver";
+
+    String[] getDependencies() {
+        return new String[]{ StorageWorker.WORKER_PATH };
+    }
+
+    void onPost(RestOperation op) {
+        // Don't do any fine-grained access checks here.
+        // Don't check that the user has access to this particular area
+        // of the storage key namespace.
+        // Instead, require the absolute highest God permissions simply to
+        // access storage-receiver worker.
+        // Once the user has successfully reached storage-receiver, we must
+        // accept whatever it gives us, because it has already been written
+        // on a peer system, and we can't allow the peers to diverge.
+        //
+        // Since we're not doing batching or compression (yet), and we're
+        // not doing fine-grained access checks, pass the request directly
+        // to storage.
+        var storageOp = new RestOperation();
+        storageOp.method = Http.POST;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.setRawBody(op.getBody());
+        sendOperation(storageOp);
+        if (!storageOp.success()) {
+            // We should make a note somewhere locally that this update
+            // has been rejected, so this resource is now in conflict.
+            // Automatic conflict resolution is impossible, but we could
+            // build a system where an administrator could view and manually
+            // resolve conflicts.
+            System.println("CONFLICT");
+        }
+        // Even if the post was rejected by local storage, we still return
+        // that the post was successful. It successfully *reached* us.
+        // So the caller should remove the post from its outgoing queue,
+        // rather then retrying it.
+        op.setBody(null);
+    }
+
+    // TODO onDelete
+
+    // We could implement onGet() to expose replication data -- list of
+    // peers, count of successfully received updates, list of conflicts,
+    // etc.
+}

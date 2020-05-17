@@ -23,6 +23,7 @@ class StorageWorker extends RestWorker {
     private LockManager lockManager;
     private File rootDirectory;
     private File stageDirectory;
+    private String peerUrl;
 
     StorageWorker() {
         this.lockManager = new LockManager();
@@ -55,9 +56,7 @@ class StorageWorker extends RestWorker {
             op.setErrorBody("invalid " + GENERATION);
             return;
         }
-        var threadId = getThreadId();
-        var status = this.lockManager.waitLock(storageKey, true, threadId);
-        if (status != LockManager.OK) {
+        if (!this.lockManager.waitLock(storageKey, true)) {
             op.setErrorBody("failed to lock key: " + storageKey);
             return;
         }
@@ -78,45 +77,12 @@ class StorageWorker extends RestWorker {
             }
         }
         if (!failed) {
+            postToStorageLog(op, storageKey);
             writeJsonObject(storageKey, obj);
             op.setJsonBody(obj);
+            postToStorageSender(op);
         }
-        this.lockManager.unlock(storageKey, true, threadId);
-    }
-
-    /**
-     * Read the queried object from storage.
-     */
-    void onGet(RestOperation op) {
-        var storageKey = null;
-        if (op.query != null) {
-            storageKey = op.query.getMap()[STORAGE_KEY];
-        }
-        if (storageKey == null) {
-            op.setErrorBody("missing query: " + STORAGE_KEY);
-            return;
-        }
-        if (!validateKey(storageKey)) {
-            op.setErrorBody("invalid " + STORAGE_KEY);
-            return;
-        }
-        if (op.query.getMap()[COLLECTION] == TRUE) {
-            onGetCollection(op, storageKey);
-            return;
-        }
-        var threadId = getThreadId();
-        var status = this.lockManager.waitLock(storageKey, false, threadId);
-        if (status != LockManager.OK) {
-            op.setErrorBody("failed to lock key: " + storageKey);
-            return;
-        }
-        var bytes = readBytes(storageKey);
-        this.lockManager.unlock(storageKey, false, threadId);
-        if (bytes == null) {
-            op.setErrorBody("not found: " + storageKey);
-            return;
-        }
-        op.setRawBody(bytes);
+        this.lockManager.unlock(storageKey, true);
     }
 
     /**
@@ -172,6 +138,39 @@ class StorageWorker extends RestWorker {
     }
 
     /**
+     * Read the queried object from storage.
+     */
+    void onGet(RestOperation op) {
+        var storageKey = null;
+        if (op.query != null) {
+            storageKey = op.query.getMap()[STORAGE_KEY];
+        }
+        if (storageKey == null) {
+            op.setErrorBody("missing query: " + STORAGE_KEY);
+            return;
+        }
+        if (!validateKey(storageKey)) {
+            op.setErrorBody("invalid " + STORAGE_KEY);
+            return;
+        }
+        if (op.query.getMap()[COLLECTION] == TRUE) {
+            onGetCollection(op, storageKey);
+            return;
+        }
+        if (!this.lockManager.waitLock(storageKey, false)) {
+            op.setErrorBody("failed to lock key: " + storageKey);
+            return;
+        }
+        var bytes = readBytes(storageKey);
+        this.lockManager.unlock(storageKey, false);
+        if (bytes == null) {
+            op.setErrorBody("not found: " + storageKey);
+            return;
+        }
+        op.setRawBody(bytes);
+    }
+
+    /**
      * Read a collection from storage. A collection is the direct children
      * of a storage key; it does not recursively traverse the collection.
      *
@@ -201,13 +200,11 @@ class StorageWorker extends RestWorker {
         // Lock the resources. I believe that this is safe from deadlock
         // because these locks are shared, and because the worker never holds
         // any other locks while it holds a single exclusive lock on anything.
-        var threadId = getThreadId();
         var resourceKeys = new String[filenames.length];
         var idx = 0;
         for (var filename : filenames) {
             var resourceKey = storageKey + "/" + filename;
-            var status = this.lockManager.waitLock(resourceKey, false, threadId);
-            if (status == LockManager.OK) {
+            if (!this.lockManager.waitLock(resourceKey, false)) {
                 resourceKeys[idx] = resourceKey;
                 idx++;
             }
@@ -224,7 +221,7 @@ class StorageWorker extends RestWorker {
             if (totalSize < MAX_COLLECTION_TOTAL_SIZE) {
                 bytes = readBytes(resourceKey);
             }
-            this.lockManager.unlock(resourceKey, false, threadId);
+            this.lockManager.unlock(resourceKey, false);
             if (bytes != null) {
                 text = new String(bytes);
                 if (queryMap.size() > 0) {
@@ -271,7 +268,6 @@ class StorageWorker extends RestWorker {
      * Delete an object from storage.
      */
     void onDelete(RestOperation op) {
-
         // After deleting the storageKey, if a new item is posted with this
         // key, it will start over at generation 1 again. This could
         // unintended effects. Of course, when a collection worker uses
@@ -289,15 +285,13 @@ class StorageWorker extends RestWorker {
             op.setErrorBody("invalid " + STORAGE_KEY);
             return;
         }
-        var threadId = getThreadId();
-        var status = this.lockManager.waitLock(storageKey, false, threadId);
-        if (status != LockManager.OK) {
+        if (!this.lockManager.waitLock(storageKey, false)) {
             op.setErrorBody("failed to lock key: " + storageKey);
             return;
         }
         var file = new File(this.rootDirectory, storageKey);
         var deleted = file.delete();
-        this.lockManager.unlock(storageKey, false, threadId);
+        this.lockManager.unlock(storageKey, false);
         if (!deleted) {
             op.setErrorBody("not found: " + storageKey);
             return;
@@ -305,10 +299,37 @@ class StorageWorker extends RestWorker {
     }
 
     /**
-     * threadId is simply any unique id LockManager uses to match a lock()
-     * request with an unlock() request.
+     * Post a log message indicating that we are about to save a new resource
+     * with the given key. This is for crash recovery. If the system dies
+     * before the resource has been sent to our peer(s) for replication,
+     * then the log message will tell us to send it when we restart.
      */
-    private long getThreadId() {
-        return System.random(2147483647);
+    private void postToStorageLog(RestOperation op, String storageKey) {
+        if (this.peerUrl == null) {
+            // No peers means no replication, no crash recovery, no log.
+            return;
+        }
+        if (op.source == StorageReceiverWorker.WORKER_PATH) {
+            // This resource is replicated here from a peer.
+            // Do not send it back to peer(s).
+            return;
+        }
+        // TODO
+    }
+
+    /**
+     * Post to StorageSender worker that this resource has been saved locally,
+     * so it should use a background thread to try to replicate it to our
+     * peer(s). StorageSender will write the necessary log message after
+     * the resource has been replicated.
+     */
+    private void postToStorageSender(RestOperation op) {
+        if (this.peerUrl == null) {
+            return;
+        }
+        if (op.source == StorageReceiverWorker.WORKER_PATH) {
+            return;
+        }
+        // TODO
     }
 }
