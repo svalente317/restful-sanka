@@ -114,7 +114,7 @@ In theory, if "/echo" had been registered out-of-process, then send()
 would make the appropriate http call to the registered host and
 port. (Note that this is not implemented yet.)
 
-### Resource Collections
+## Resource Collections
 
 Restful Sanka provides infrastructure to create collections of
 resources. To create a collection, define the resource as a Plain Old
@@ -222,3 +222,17 @@ Here are some notes about CollectionWorker, in no particular order.
   clients have both seen generation 1, and they simultaneously send
   updates, and they both specify "generation 2". One of these updates
   is saved as generation 2. The other fails: "Generation not available."
+
+## Services
+
+In addition to a basic infrastructure, Restful Sanka comes with two
+packages of services:
+
+* [Storage](src/storage). This is the service that reads and writes
+  resources to disk. The Collection Worker infrastructure uses this
+  service.
+
+* [Notebook](src/notebook). This is a small set of workers that can be
+  used to manage a collection of "notebooks", where a notebook is an
+  ordered series of individual documents. It's a very simple service,
+  but it's an example of the kind of things that Restful Sanka can do.
