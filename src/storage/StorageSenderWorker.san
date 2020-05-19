@@ -1,0 +1,127 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.lang.Channel;
+import sanka.lang.Mutex;
+import sanka.lang.Thread;
+import sanka.rest.Configuration;
+import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
+
+class StorageSenderWorker extends RestWorker {
+    const WORKER_PATH = "/storage-sender";
+    const MAX_QUEUE_SIZE = 1000;
+
+    /**
+     * Peer URL including scheme, hostname, port, and optional prefix.
+     * This will post to /storage on the peer URL.
+     */
+    private String peerUrl;
+
+    /**
+     * Channel for communication between the worker and background thread.
+     * This is the queue of storageKeys of the resources that need to be
+     * replicated.
+     */
+    private Channel channel;
+
+    /**
+     * Cache of recently posted resources. When the background thread is
+     * ready to transmit a resource, it looks for the resource by key in
+     * this cache. If the key is not found, then get the current value of
+     * the resource directly from storage.
+     */
+    private byte[][String] storageCache;
+
+    private Mutex cacheMutex;
+    private Thread backgroundThread;
+
+    StorageSenderWorker() {
+        this.peerUrl = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
+        if (this.peerUrl == null) {
+            return;
+        }
+        this.channel = new Channel(MAX_QUEUE_SIZE);
+        this.storageCache = new byte[][class String];
+        this.cacheMutex = new Mutex();
+    }
+    
+    void onStart() {
+        if (this.peerUrl != null) {
+            this.backgroundThread = new Thread(this);
+        }
+    }
+
+    void onPost(RestOperation op) {
+        if (this.peerUrl == null) {
+            op.setErrorBody("worker disabled");
+            return;
+        }
+        var obj = op.getJsonBody();
+        if (obj == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        var storageKey = obj.getString(StorageWorker.STORAGE_KEY);
+        if (storageKey == null) {
+            op.setErrorBody("missing field: " + StorageWorker.STORAGE_KEY);
+            return;
+        }
+        this.cacheMutex.lock();
+        this.storageCache[storageKey] = op.getBody();
+        this.cacheMutex.unlock();
+        this.channel.push(storageKey);
+        op.setBody(null);
+    }
+
+    void run() {
+        while (true) {
+            var storageKey = this.channel.pop();
+            if (storageKey == null) {
+                break;
+            }
+            System.println("send " + storageKey);
+            var body = null;
+            this.cacheMutex.lock();
+            body = this.storageCache[storageKey];
+            if (body != null) {
+                this.storageCache.remove(storageKey);
+            }
+            this.cacheMutex.unlock();
+            if (body == null) {
+                body = getResourceFromStorage(storageKey);
+            }
+            if (body == null) {
+                continue;
+            }
+            // TODO send
+            postToStorageLog(storageKey);
+        }
+    }
+
+    private byte[] getResourceFromStorage(String storageKey) {
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, storageKey);
+        sendOperation(storageOp);
+        if (!storageOp.success()) {
+            return null;
+        }
+        return storageOp.getBody();
+    }
+
+    /**
+     * Post a log message indicating that the resource has been replicated,
+     * so that if this process crashes, we won't try to replicate the
+     * resource on restart.
+     */
+    private void postToStorageLog(String storageKey) {
+        var state = new StorageLogPostState();
+        state.operation = StorageLogWorker.REPLICATED_OPERATION;
+        state.storageKey = storageKey;
+        send(Http.POST, StorageLogWorker.WORKER_PATH, state);
+    }
+}

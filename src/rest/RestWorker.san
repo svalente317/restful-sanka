@@ -14,8 +14,12 @@ abstract class RestWorker {
     private String workerPath;
 
     void setRestProcessor(RestProcessor processor, String workerPath) {
-        this.processor = processor;
-        this.workerPath = workerPath;
+        if (this.processor == null) {
+            this.processor = processor;
+        }
+        if (this.workerPath == null) {
+            this.workerPath = workerPath;
+        }
     }
         
     String getWorkerPath() {

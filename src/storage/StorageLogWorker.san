@@ -1,0 +1,77 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.io.File;
+import sanka.io.FileWriter;
+import sanka.rest.Configuration;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+
+serializable class StorageLogPostState {
+    String operation;
+    String storageKey;
+}
+
+/**
+ * The storage log is write-only. We never read the log while the system
+ * is live. We only read (and compact) the log on startup.
+ *
+ * Whenever we are about to create or update a resource, add a line
+ * that starts with '+' (plus) and then has the storage key.
+ *
+ * Whenever we are about to delete a resource, add a line that starts
+ * with a '-' (minus) and then has the storage key.
+ *
+ * Whenever a resource has been sent to all peers, add a line that starts
+ * with a '*' (star) and then has the storage key.
+ *
+ * Obviously, this is optimized for the presumed common case: only one peer.
+ * If we want to really support multiple peers, then we should write a line
+ * for replication to each individual peer.
+ */
+class StorageLogWorker extends RestWorker {
+    const WORKER_PATH = "/storage-log";
+
+    const IN_STORE_FILENAME = ".replication.log";
+    const CREATE_OPERATION = "+";
+    const DELETE_OPERATION = "-";
+    const REPLICATED_OPERATION = "*";
+
+    private FileWriter logWriter;
+    
+    StorageLogWorker() {
+        var root = Configuration.get().data[StorageWorker.STORAGE_ROOT_PREF];
+        var peer = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
+        if (root == null || peer == null) {
+            return;
+        }
+        var rootDirectory = new File(root);
+        rootDirectory.mkdirs();
+        var logFile = new File(rootDirectory, IN_STORE_FILENAME);
+
+        // TODO read and compact the log,
+        // and initialize the outgoing queue.
+
+        this.logWriter = new FileWriter();
+        var status = this.logWriter.open(logFile.getPath());
+        if (status != 0) {
+            System.println(logFile.toString() + ": " + System.strerror(status));
+            this.logWriter = null;
+        }
+    }
+
+    void onPost(RestOperation op) {
+        if (this.logWriter == null) {
+            op.setErrorBody("worker disabled");
+            return;
+        }
+        var post = new StorageLogPostState();
+        if (!op.parseBody(post)) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        var line = post.operation + post.storageKey + "\n";
+        this.logWriter.write(line.toByteArray());
+        this.logWriter.sync();
+        op.setBody(null);
+    }
+}

@@ -1,17 +1,23 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
+import sanka.http.Http;
 import sanka.http.Query;
 import sanka.io.File;
 import sanka.io.FileReader;
 import sanka.io.FileWriter;
+import sanka.json.JsonElement;
 import sanka.json.JsonObject;
+import sanka.rest.Configuration;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
 class StorageWorker extends RestWorker {
     const WORKER_PATH = "/storage";
+    const REPLICATED_WORKER_PATH = "/replicated-storage";
 
-    const ROOT_DIRECTORY = "/tmp/rest-storage";
+    const STORAGE_ROOT_PREF = "storage.root";
+    const STORAGE_PEER_PREF = "storage.peer";
+    const DEFAULT_ROOT_DIRECTORY = "/tmp/rest-storage";
     const STAGE_DIRECTORY = ".stage";
     const STORAGE_KEY = "storageKey";
     const GENERATION = "generation";
@@ -26,11 +32,16 @@ class StorageWorker extends RestWorker {
     private String peerUrl;
 
     StorageWorker() {
+        var root = Configuration.get().data[STORAGE_ROOT_PREF];
+        if (root == null) {
+            root = DEFAULT_ROOT_DIRECTORY;
+        }
         this.lockManager = new LockManager();
-        this.rootDirectory = new File(ROOT_DIRECTORY);
+        this.rootDirectory = new File(root);
         this.rootDirectory.mkdirs();
         this.stageDirectory = new File(this.rootDirectory, STAGE_DIRECTORY);
         this.stageDirectory.mkdirs();
+        this.peerUrl = Configuration.get().data[STORAGE_PEER_PREF];
     }
 
     /**
@@ -87,14 +98,39 @@ class StorageWorker extends RestWorker {
 
     /**
      * Valid key:
+     * starts with slash. does not end with slash.
      * 1 or more components separated by slashes
      * each component is 1 to 80 characters
-     * does not start or end with a slash
      * component does not start with a dot
      * alphanumerics, dash, dot, underscore
      */
     private boolean validateKey(String key) {
-        // TODO
+        var length = key.length();
+        var start = 0;
+        if (key[0] != '/') {
+            return false;
+        }
+        for (var idx = 1; idx <= length; idx++) {
+            if (idx == length || key[idx] == '/') {
+                var componentLen = idx - (start+1);
+                if (componentLen == 0 || componentLen > 80) {
+                    return false;
+                }
+                if (key[start+1] == '.') {
+                    return false;
+                }
+                start = idx;
+            } else {
+                var ch = key[idx];
+                var ok = ((ch >= 'a' && ch <= 'z') ||
+                          (ch >= 'A' && ch <= 'Z') ||
+                          (ch >= '0' && ch <= '9') ||
+                          (ch == '-' || ch == '.' || ch == '_'));
+                if (!ok) {
+                    return false;
+                }
+            }
+        }
         return true;
     }
 
@@ -204,12 +240,13 @@ class StorageWorker extends RestWorker {
         var idx = 0;
         for (var filename : filenames) {
             var resourceKey = storageKey + "/" + filename;
-            if (!this.lockManager.waitLock(resourceKey, false)) {
+            if (this.lockManager.waitLock(resourceKey, false)) {
                 resourceKeys[idx] = resourceKey;
                 idx++;
             }
         }
         resourceKeys.setLength(idx);
+        System.sort(resourceKeys);
 
         // Read and unlock the resources.
         var collection = new String[resourceKeys.length];
@@ -257,7 +294,12 @@ class StorageWorker extends RestWorker {
     private boolean filterMatch(JsonObject object, String[String] queryMap) {
         for (var key, value : queryMap) {
             var element = object.get(key);
-            if (element == null || element.toString() != value) {
+            if (element == null) {
+                return false;
+            }
+            var evalue = element.type == JsonElement.STRING_TYPE ?
+                element.getAsString() : element.toString();
+            if (evalue != value) {
                 return false;
             }
         }
@@ -289,8 +331,10 @@ class StorageWorker extends RestWorker {
             op.setErrorBody("failed to lock key: " + storageKey);
             return;
         }
+        postToStorageLog(op, storageKey);
         var file = new File(this.rootDirectory, storageKey);
         var deleted = file.delete();
+        // TODO postDeleteToStorageSender(deleted);
         this.lockManager.unlock(storageKey, false);
         if (!deleted) {
             op.setErrorBody("not found: " + storageKey);
@@ -305,16 +349,18 @@ class StorageWorker extends RestWorker {
      * then the log message will tell us to send it when we restart.
      */
     private void postToStorageLog(RestOperation op, String storageKey) {
+        if (op.path != REPLICATED_WORKER_PATH) {
+            return;
+        }
         if (this.peerUrl == null) {
-            // No peers means no replication, no crash recovery, no log.
             return;
         }
-        if (op.source == StorageReceiverWorker.WORKER_PATH) {
-            // This resource is replicated here from a peer.
-            // Do not send it back to peer(s).
-            return;
-        }
-        // TODO
+        var state = new StorageLogPostState();
+        state.operation = op.method == Http.DELETE ?
+            StorageLogWorker.DELETE_OPERATION :
+            StorageLogWorker.CREATE_OPERATION;
+        state.storageKey = storageKey;
+        send(Http.POST, StorageLogWorker.WORKER_PATH, state);
     }
 
     /**
@@ -324,12 +370,16 @@ class StorageWorker extends RestWorker {
      * the resource has been replicated.
      */
     private void postToStorageSender(RestOperation op) {
+        if (op.path != REPLICATED_WORKER_PATH) {
+            return;
+        }
         if (this.peerUrl == null) {
             return;
         }
-        if (op.source == StorageReceiverWorker.WORKER_PATH) {
-            return;
-        }
-        // TODO
+        var outgoing = new RestOperation();
+        outgoing.method = Http.POST;
+        outgoing.path = StorageSenderWorker.WORKER_PATH;
+        outgoing.setRawBody(op.getBody());
+        sendOperation(outgoing);
     }
 }

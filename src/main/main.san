@@ -1,6 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.rest.main;
 import sanka.http.Server;
+import sanka.rest.Configuration;
 import sanka.rest.RestProcessor;
 import sanka.rest.examples.DirectoryCollectionWorker;
 import sanka.rest.examples.EchoWorker;
@@ -11,8 +12,9 @@ import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
 import sanka.rest.storage.PrimaryKeyWorker;
+import sanka.rest.storage.StorageLogWorker;
+import sanka.rest.storage.StorageSenderWorker;
 import sanka.rest.storage.StorageWorker;
-import sanka.rest.storage.StorageReceiverWorker;
 
 /**
  * Start a REST server listening on port 8888.
@@ -20,16 +22,26 @@ import sanka.rest.storage.StorageReceiverWorker;
  * Register Notebook workers.
  */
 class RestfulSanka {
-    const USAGE = "Usage: restful-server [-p port]";
+    const USAGE = "Usage: restful-server [-p port] [-d storage] [-o peer]";
 
     static int main(String[] argv) {
         var port = 8888;
+        var storageRoot = null;
+        var peerUrl = null;
         var error = false;
         for (var idx = 1; idx < argv.length; idx++) {
             switch (argv[idx]) {
             case "-p":
                 idx++;
                 port = System.parseInt(argv[idx]);
+                break;
+            case "-d":
+                idx++;
+                storageRoot = argv[idx];
+                break;
+            case "-o":
+                idx++;
+                peerUrl = argv[idx];
                 break;
             default:
                 error = true;
@@ -40,11 +52,23 @@ class RestfulSanka {
             System.println(USAGE);
             return -1;
         }
+        var configMap = Configuration.get().data;
+        if (storageRoot != null) {
+            configMap[StorageWorker.STORAGE_ROOT_PREF] = storageRoot;
+        }
+        if (peerUrl != null) {
+            configMap[StorageWorker.STORAGE_PEER_PREF] = peerUrl;
+        }
         var processor = new RestProcessor();
+        var storageWorker = new StorageWorker();
+        processor.register(StorageLogWorker.WORKER_PATH,
+                           new StorageLogWorker());
         processor.register(StorageWorker.WORKER_PATH,
-                           new StorageWorker());
-        processor.register(StorageReceiverWorker.WORKER_PATH,
-                           new StorageReceiverWorker());
+                           storageWorker);
+        processor.register(StorageWorker.REPLICATED_WORKER_PATH,
+                           storageWorker);
+        processor.register(StorageSenderWorker.WORKER_PATH,
+                           new StorageSenderWorker());
         processor.register(PrimaryKeyWorker.WORKER_PATH,
                            new PrimaryKeyWorker());
         processor.register(EchoWorker.WORKER_PATH,
