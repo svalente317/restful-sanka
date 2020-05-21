@@ -38,7 +38,7 @@ class StorageSenderWorker extends RestWorker {
     private Mutex cacheMutex;
     private Thread backgroundThread;
 
-    StorageSenderWorker() {
+    void onStart() {
         var peerUrl = getConfig(StorageWorker.STORAGE_PEER_PREF);
         if (peerUrl == null) {
             return;
@@ -51,12 +51,7 @@ class StorageSenderWorker extends RestWorker {
         this.channel = new Channel(MAX_QUEUE_SIZE);
         this.storageCache = new byte[][class String];
         this.cacheMutex = new Mutex();
-    }
-    
-    void onStart() {
-        if (this.receiverUrl != null) {
-            this.backgroundThread = new Thread(this);
-        }
+        this.backgroundThread = new Thread(this);
     }
 
     void onPost(RestOperation op) {

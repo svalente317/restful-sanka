@@ -28,7 +28,7 @@ class StorageWorker extends RestWorker {
     private File stageDirectory;
     private String peerUrl;
 
-    StorageWorker() {
+    void onStart() {
         var root = getConfig(STORAGE_ROOT_PREF);
         if (root == null) {
             root = DEFAULT_ROOT_DIRECTORY;

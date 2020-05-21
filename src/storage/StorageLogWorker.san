@@ -33,7 +33,7 @@ class StorageLogWorker extends RestWorker {
 
     private FileWriter logWriter;
     
-    StorageLogWorker() {
+    void onStart() {
         var root = getConfig(StorageWorker.STORAGE_ROOT_PREF);
         var peer = getConfig(StorageWorker.STORAGE_PEER_PREF);
         if (root == null || peer == null) {
