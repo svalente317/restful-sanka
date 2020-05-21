@@ -2,7 +2,6 @@
 package sanka.rest.storage;
 import sanka.io.File;
 import sanka.io.FileWriter;
-import sanka.rest.Configuration;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
@@ -35,8 +34,8 @@ class StorageLogWorker extends RestWorker {
     private FileWriter logWriter;
     
     StorageLogWorker() {
-        var root = Configuration.get().data[StorageWorker.STORAGE_ROOT_PREF];
-        var peer = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
+        var root = getConfig(StorageWorker.STORAGE_ROOT_PREF);
+        var peer = getConfig(StorageWorker.STORAGE_PEER_PREF);
         if (root == null || peer == null) {
             return;
         }

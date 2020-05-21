@@ -7,7 +7,6 @@ import sanka.io.FileReader;
 import sanka.io.FileWriter;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
-import sanka.rest.Configuration;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
@@ -30,7 +29,7 @@ class StorageWorker extends RestWorker {
     private String peerUrl;
 
     StorageWorker() {
-        var root = Configuration.get().data[STORAGE_ROOT_PREF];
+        var root = getConfig(STORAGE_ROOT_PREF);
         if (root == null) {
             root = DEFAULT_ROOT_DIRECTORY;
         }
@@ -39,7 +38,7 @@ class StorageWorker extends RestWorker {
         this.rootDirectory.mkdirs();
         this.stageDirectory = new File(this.rootDirectory, STAGE_DIRECTORY);
         this.stageDirectory.mkdirs();
-        this.peerUrl = Configuration.get().data[STORAGE_PEER_PREF];
+        this.peerUrl = getConfig(STORAGE_PEER_PREF);
     }
 
     /**

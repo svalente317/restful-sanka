@@ -7,7 +7,6 @@ import sanka.http.URL;
 import sanka.lang.Channel;
 import sanka.lang.Mutex;
 import sanka.lang.Thread;
-import sanka.rest.Configuration;
 import sanka.rest.RestOperation;
 import sanka.rest.RestWorker;
 
@@ -40,7 +39,7 @@ class StorageSenderWorker extends RestWorker {
     private Thread backgroundThread;
 
     StorageSenderWorker() {
-        var peerUrl = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
+        var peerUrl = getConfig(StorageWorker.STORAGE_PEER_PREF);
         if (peerUrl == null) {
             return;
         }

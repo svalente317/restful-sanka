@@ -1,7 +1,6 @@
 // -*- mode: Java; -*-
 package sanka.rest.main;
 import sanka.http.Server;
-import sanka.rest.Configuration;
 import sanka.rest.RestProcessor;
 import sanka.rest.examples.DirectoryCollectionWorker;
 import sanka.rest.examples.EchoWorker;
@@ -53,14 +52,14 @@ class RestfulSanka {
             System.println(USAGE);
             return -1;
         }
-        var configMap = Configuration.get().data;
+        var configuration = new String[class String];
         if (storageRoot != null) {
-            configMap[StorageWorker.STORAGE_ROOT_PREF] = storageRoot;
+            configuration[StorageWorker.STORAGE_ROOT_PREF] = storageRoot;
         }
         if (peerUrl != null) {
-            configMap[StorageWorker.STORAGE_PEER_PREF] = peerUrl;
+            configuration[StorageWorker.STORAGE_PEER_PREF] = peerUrl;
         }
-        var processor = new RestProcessor();
+        var processor = new RestProcessor(configuration);
         processor.register(StorageLogWorker.WORKER_PATH,
                            new StorageLogWorker());
         processor.register(StorageWorker.WORKER_PATH,

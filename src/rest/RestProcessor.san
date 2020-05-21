@@ -15,12 +15,18 @@ import sanka.http.URLEncoder;
  * to process a RestOperation.
  */
 class RestProcessor {
+    private String[String] configuration;
     private RestWorker[String] workerMap;
     private boolean[String] isStarted;
 
-    RestProcessor() {
+    RestProcessor(String[String] configuration) {
+        this.configuration = configuration;
         this.workerMap = new RestWorker[class String];
         this.isStarted = new boolean[class String];
+    }
+
+    String getConfig(String key) {
+        return this.configuration[key];
     }
 
     void register(String path, RestWorker worker) {
