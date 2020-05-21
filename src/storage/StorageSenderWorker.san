@@ -1,7 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
 import sanka.http.Http;
+import sanka.http.HttpClient;
 import sanka.http.Query;
+import sanka.http.URL;
 import sanka.lang.Channel;
 import sanka.lang.Mutex;
 import sanka.lang.Thread;
@@ -14,10 +16,9 @@ class StorageSenderWorker extends RestWorker {
     const MAX_QUEUE_SIZE = 1000;
 
     /**
-     * Peer URL including scheme, hostname, port, and optional prefix.
-     * This will post to /storage on the peer URL.
+     * URL of peer StorageReceiver.
      */
-    private String peerUrl;
+    private URL receiverUrl;
 
     /**
      * Channel for communication between the worker and background thread.
@@ -34,27 +35,33 @@ class StorageSenderWorker extends RestWorker {
      */
     private byte[][String] storageCache;
 
+    // Replace cacheMutex with thread-safe StorageCache class.
     private Mutex cacheMutex;
     private Thread backgroundThread;
 
     StorageSenderWorker() {
-        this.peerUrl = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
-        if (this.peerUrl == null) {
+        var peerUrl = Configuration.get().data[StorageWorker.STORAGE_PEER_PREF];
+        if (peerUrl == null) {
             return;
         }
+        var path = StorageReceiverWorker.WORKER_PATH;
+        if (peerUrl.endsWith("/")) {
+            path = path.substring(1);
+        }
+        this.receiverUrl = new URL(peerUrl + path);
         this.channel = new Channel(MAX_QUEUE_SIZE);
         this.storageCache = new byte[][class String];
         this.cacheMutex = new Mutex();
     }
     
     void onStart() {
-        if (this.peerUrl != null) {
+        if (this.receiverUrl != null) {
             this.backgroundThread = new Thread(this);
         }
     }
 
     void onPost(RestOperation op) {
-        if (this.peerUrl == null) {
+        if (this.receiverUrl == null) {
             op.setErrorBody("worker disabled");
             return;
         }
@@ -75,6 +82,14 @@ class StorageSenderWorker extends RestWorker {
         op.setBody(null);
     }
 
+    /**
+     * Run the background thread. Send resources that the worker adds to the
+     * queue.
+     *
+     * TODO. Keep HttpClient open. Send multiple HTTP requests over a single
+     * connection. Use a timer to close the connection after sufficient idle
+     * time.
+     */
     void run() {
         while (true) {
             var storageKey = this.channel.pop();
@@ -95,8 +110,21 @@ class StorageSenderWorker extends RestWorker {
             if (body == null) {
                 continue;
             }
-            // TODO send
-            postToStorageLog(storageKey);
+            var sender = new HttpClient();
+            var ok = sender.send(this.receiverUrl, Http.POST, body);
+            if (ok) {
+                if (sender.status != Http.OK) {
+                    System.println("status code " + sender.status);
+                    ok = false;
+                }
+                sender.close();
+            }
+            if (ok) {
+                postToStorageLog(storageKey);
+            } else {
+                // TODO Use exponential backoff.
+                System.sleep(1000);
+            }
         }
     }
 

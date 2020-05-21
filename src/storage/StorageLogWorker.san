@@ -21,12 +21,8 @@ serializable class StorageLogPostState {
  * Whenever we are about to delete a resource, add a line that starts
  * with a '-' (minus) and then has the storage key.
  *
- * Whenever a resource has been sent to all peers, add a line that starts
+ * Whenever a resource has been sent to our peer, add a line that starts
  * with a '*' (star) and then has the storage key.
- *
- * Obviously, this is optimized for the presumed common case: only one peer.
- * If we want to really support multiple peers, then we should write a line
- * for replication to each individual peer.
  */
 class StorageLogWorker extends RestWorker {
     const WORKER_PATH = "/storage-log";

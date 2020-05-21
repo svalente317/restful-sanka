@@ -1,0 +1,85 @@
+// -*- mode: Java; -*-
+package sanka.http;
+import sanka.io.LineReader;
+import sanka.net.InetAddress;
+import sanka.net.Socket;
+
+class HttpClient {
+    const USER_AGENT = "restful-sanka/1.0";
+
+    // The most recent response.
+    String httpVersion;
+    int status;
+    String reasonPhrase;
+    String[String] headers;
+
+    // For reading the body after the headers.
+    private LineReader reader;
+
+    /**
+     * Open a connection, send the request, and receive the response headers.
+     *
+     * If this returns true, then the connection is open and must be closed.
+     * The caller may optionally check the response status, and may optionally
+     * read the response body. But even if the caller skips those steps, it
+     * still must call close().
+     *
+     * @return true if the connection was established, and the request was
+     *         sent, and valid response headers were received.
+     */
+    boolean send(URL url, String method, byte[] body) {
+        close();
+        if (url.scheme != "http" || url.hostname == null) {
+            return false;
+        }
+        var address = InetAddress.get(url.hostname);
+        if (address == null) {
+            return false;
+        }
+        var port = url.port > 0 ? url.port : Http.HTTP_PORT;
+        var socket = new Socket();
+        var status = socket.connect(address, port);
+        if (status != 0) {
+            System.println("connect: " + System.strerror(status));
+            return false;
+        }
+        var portText = url.port > 0 ? ":" + url.port : "";
+        var text = method + " " + url.getRequestUri() + " " + Http.VERSION +
+            "\r\n" + Http.HOST + ": " + url.hostname + portText + "\r\n" +
+            Http.USER_AGENT + ": " + USER_AGENT + "\r\n" +
+            Http.CONTENT_LENGTH + ": " + (body == null ? 0 : body.length) +
+            "\r\n\r\n";
+        socket.write(text.toByteArray());
+
+        var lineReader = new LineReader(socket);
+        var parser = new HttpParser(lineReader);
+        var responseLine = "null"; // TODO parser.parseResponseLine();
+        System.println(lineReader.readline());
+        this.status = Http.OK;
+        if (responseLine == null) {
+            socket.close();
+            return false;
+        }
+        this.headers = new String[class String];
+        while (true) {
+            var header = parser.parseHeader();
+            if (header == null || header.length == 0) {
+                break;
+            }
+            this.headers[header[0]] = header[1];
+        }
+        this.reader = lineReader;
+        return true;
+    }
+
+    LineReader getReader() {
+        return this.reader;
+    }
+
+    void close() {
+        if (this.reader != null) {
+            this.reader.close();
+            this.reader = null;
+        }
+    }
+}

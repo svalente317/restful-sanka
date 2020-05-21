@@ -1,6 +1,10 @@
 // -*- mode: Java; -*-
 package sanka.http;
 
+/**
+ * HttpResponse represents a response that was generated locally by
+ * processing an HttpRequest. The response can be sent out.
+ */
 class HttpResponse {
     int status;
     String[String] headers;

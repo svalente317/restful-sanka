@@ -1,6 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.http;
 
+/**
+ * HttpRequest represents an incoming request, ready to be processed.
+ */
 class HttpRequest {
     String method;
     String uri;

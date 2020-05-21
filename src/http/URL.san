@@ -10,6 +10,46 @@ class URL {
     String query;
     String fragment;
 
+    URL() {}
+
+    URL(String value) {
+        this.url = value;
+        var idx = value.indexOf(':');
+        if (idx <= 0) {
+            return;
+        }
+        this.scheme = value.substring(0, idx);
+
+        // The scheme is followed by two slashes, where zero are necessary.
+        // The colon is sufficient to separate scheme from hostname.
+        // So if you're going to add an unnecessary slash, might as well
+        // add another unnecessary slash.
+
+        value = value.substring(idx+1);
+        if (!value.startsWith("//")) {
+            return;
+        }
+        value = value.substring(2);
+        idx = value.indexOf('/');
+        if (idx < 0) {
+            this.hostname = value;
+            value = null;
+        } else {
+            this.hostname = value.substring(0, idx);
+            value = value.substring(idx);
+        }
+        if (this.hostname != null) {
+            idx = this.hostname.indexOf(':');
+            if (idx >= 0) {
+                this.port = System.parseInt(this.hostname.substring(idx+1));
+                this.hostname = this.hostname.substring(0, idx);
+            }
+        }
+        if (value != null) {
+            setRequestUri(value);
+        }
+    }
+
     /**
      * From an HTTP request like GET /path?query#fragment
      * parse the URI into path, query, and fragment.
@@ -35,5 +75,19 @@ class URL {
             }
         }
         return this;
+    }
+
+    /**
+     * Get the URI for an HTTP request like /path?query#fragment
+     */
+    String getRequestUri() {
+        var path = this.path != null ? this.path : "/";
+        if (this.query != null) {
+            path = path + "?" + this.query;
+        }
+        if (this.fragment != null) {
+            path = path + "#" + this.fragment;
+        }
+        return path;
     }
 }

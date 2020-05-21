@@ -198,9 +198,9 @@ abstract class CollectionWorker extends RestWorker {
     }
 
     /**
-     * Use PrimaryKeyWorker. TODO make this private
+     * Use PrimaryKeyWorker.
      */
-    String generateKey() {
+    private String generateKey() {
         var state = new PrimaryKeyPostState();
         state.prefix = this.primaryKeyPrefix;
         var op = send(Http.POST, PrimaryKeyWorker.WORKER_PATH, state);

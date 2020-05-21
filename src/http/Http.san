@@ -7,6 +7,7 @@ package sanka.http;
 class Http {
     const RFC822_FORMAT = "%a, %d %b %Y %T %z";
     const VERSION = "HTTP/1.1";
+    const HTTP_PORT = 80;
 
     const OPTIONS = "OPTIONS";
     const GET = "GET";
@@ -33,13 +34,13 @@ class Http {
     // Content-Location
     // Content-MD5
     // Content-Range
-    // Content-Type
+    const CONTENT_TYPE = "Content-Type";
     const DATE = "Date";
     // ETag
     // Expect
     // Expires
     // From
-    // Host
+    const HOST = "Host";
     // If-Match
     // If-Modified-Since
     // If-None-Match
@@ -59,7 +60,7 @@ class Http {
     // Trailer
     // Transfer-Encoding
     // Upgrade
-    // User-Agent
+    const USER_AGENT = "User-Agent";
     // Vary
     // Via
     // Warning

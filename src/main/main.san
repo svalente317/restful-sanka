@@ -13,6 +13,7 @@ import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
 import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageLogWorker;
+import sanka.rest.storage.StorageReceiverWorker;
 import sanka.rest.storage.StorageSenderWorker;
 import sanka.rest.storage.StorageWorker;
 
@@ -60,13 +61,12 @@ class RestfulSanka {
             configMap[StorageWorker.STORAGE_PEER_PREF] = peerUrl;
         }
         var processor = new RestProcessor();
-        var storageWorker = new StorageWorker();
         processor.register(StorageLogWorker.WORKER_PATH,
                            new StorageLogWorker());
         processor.register(StorageWorker.WORKER_PATH,
-                           storageWorker);
-        processor.register(StorageWorker.REPLICATED_WORKER_PATH,
-                           storageWorker);
+                           new StorageWorker());
+        processor.register(StorageReceiverWorker.WORKER_PATH,
+                           new StorageReceiverWorker());
         processor.register(StorageSenderWorker.WORKER_PATH,
                            new StorageSenderWorker());
         processor.register(PrimaryKeyWorker.WORKER_PATH,

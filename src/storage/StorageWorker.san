@@ -13,8 +13,6 @@ import sanka.rest.RestOperation;
 
 class StorageWorker extends RestWorker {
     const WORKER_PATH = "/storage";
-    const REPLICATED_WORKER_PATH = "/replicated-storage";
-
     const STORAGE_ROOT_PREF = "storage.root";
     const STORAGE_PEER_PREF = "storage.peer";
     const DEFAULT_ROOT_DIRECTORY = "/tmp/rest-storage";
@@ -345,14 +343,14 @@ class StorageWorker extends RestWorker {
     /**
      * Post a log message indicating that we are about to save a new resource
      * with the given key. This is for crash recovery. If the system dies
-     * before the resource has been sent to our peer(s) for replication,
+     * before the resource has been sent to our peer for replication,
      * then the log message will tell us to send it when we restart.
      */
     private void postToStorageLog(RestOperation op, String storageKey) {
-        if (op.path != REPLICATED_WORKER_PATH) {
+        if (this.peerUrl == null) {
             return;
         }
-        if (this.peerUrl == null) {
+        if (op.source == StorageReceiverWorker.WORKER_PATH) {
             return;
         }
         var state = new StorageLogPostState();
@@ -366,14 +364,14 @@ class StorageWorker extends RestWorker {
     /**
      * Post to StorageSender worker that this resource has been saved locally,
      * so it should use a background thread to try to replicate it to our
-     * peer(s). StorageSender will write the necessary log message after
+     * peer. StorageSender will write the necessary log message after
      * the resource has been replicated.
      */
     private void postToStorageSender(RestOperation op) {
-        if (op.path != REPLICATED_WORKER_PATH) {
+        if (this.peerUrl == null) {
             return;
         }
-        if (this.peerUrl == null) {
+        if (op.source == StorageReceiverWorker.WORKER_PATH) {
             return;
         }
         var outgoing = new RestOperation();
