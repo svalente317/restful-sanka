@@ -9,6 +9,7 @@ import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
+import sanka.util.Random;
 
 class StorageWorker extends RestWorker {
     const WORKER_PATH = "/storage";
@@ -158,7 +159,7 @@ class StorageWorker extends RestWorker {
      * Write the given object to storage under the given key.
      */
     void writeJsonObject(String storageKey, JsonObject obj) {
-        var file = new File(this.stageDirectory, System.randomUuid());
+        var file = new File(this.stageDirectory, Random.randomUuid());
         var writer = new FileWriter();
         if (writer.open(file.getPath()) != 0) {
             return;

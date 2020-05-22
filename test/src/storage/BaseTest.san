@@ -1,0 +1,56 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.json.Serializable;
+import sanka.rest.RestOperation;
+import sanka.rest.RestProcessor;
+
+abstract class BaseTest {
+
+    private int failureCount;
+
+    void registerStorageWorkers(RestProcessor processor) {
+        processor.register(StorageLogWorker.WORKER_PATH,
+                           new StorageLogWorker());
+        processor.register(StorageWorker.WORKER_PATH,
+                           new StorageWorker());
+        processor.register(StorageReceiverWorker.WORKER_PATH,
+                           new StorageReceiverWorker());
+        processor.register(StorageSenderWorker.WORKER_PATH,
+                           new StorageSenderWorker());
+    }
+
+    RestOperation send(RestProcessor processor, String method, String path,
+                       Serializable body) {
+        var op = new RestOperation();
+        op.method = method;
+        op.path = path;
+        op.setBody(body);
+        op.status = Http.OK;
+        processor.processOperation(op);
+        return op;
+    }
+
+    RestOperation sendQuery(RestProcessor processor, String path,
+                            Query query) {
+        var op = new RestOperation();
+        op.method = Http.GET;
+        op.path = path;
+        op.query = query;
+        op.status = Http.OK;
+        processor.processOperation(op);
+        return op;
+    }
+
+    void assert(boolean value, String text) {
+        if (!value) {
+            System.println(text);
+            this.failureCount++;
+        }
+    }
+
+    int getFailureCount() {
+        return this.failureCount;
+    }
+}

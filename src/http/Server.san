@@ -8,20 +8,24 @@ import sanka.net.Socket;
  * and start new threads to process and respond to requests.
  */
 class Server {
+    private Socket socket;
+
     void listen(int port, HttpProcessor processor) {
-        var socket = new Socket();
-        var status = socket.bind(port);
+        this.socket = new Socket();
+        var status = this.socket.bind(port);
         if (status != 0) {
+            close();
             System.println("bind " + port + ": " + System.strerror(status));
             return;
         }
-        status = socket.listen(8);
+        status = this.socket.listen(8);
         if (status != 0) {
+            close();
             System.println("listen: " + System.strerror(status));
             return;
         }
         while (true) {
-            var connection = socket.accept();
+            var connection = this.socket.accept();
             if (connection == null) {
                 System.println("accept: done");
                 break;
@@ -29,6 +33,13 @@ class Server {
             var runnable = new ServerThread(connection, processor);
             new Thread(runnable);
         }
-        socket.close();
+        close();
+    }
+
+    void close() {
+        if (this.socket != null) {
+            this.socket.close();
+            this.socket = null;
+        }
     }
 }

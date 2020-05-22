@@ -90,7 +90,6 @@ class StorageSenderWorker extends RestWorker {
             if (storageKey == null) {
                 break;
             }
-            System.println("send " + storageKey);
             var body = null;
             this.cacheMutex.lock();
             body = this.storageCache[storageKey];

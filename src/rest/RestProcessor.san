@@ -50,7 +50,6 @@ class RestProcessor {
                 this.isStarted[path] = true;
                 startCount++;
             }
-            System.println("startCount=" + startCount);
             if (startCount == 0) {
                 break;
             }

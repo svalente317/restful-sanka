@@ -50,6 +50,7 @@ class HttpClient {
             Http.CONTENT_LENGTH + ": " + (body == null ? 0 : body.length) +
             "\r\n\r\n";
         socket.write(text.toByteArray());
+        socket.write(body);
 
         var lineReader = new LineReader(socket);
         var parser = new HttpParser(lineReader);

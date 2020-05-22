@@ -1,0 +1,79 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.BackgroundServer;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.rest.RestOperation;
+import sanka.rest.RestProcessor;
+import sanka.util.Random;
+
+serializable class StorageItem {
+    String storageKey;
+    int generation;
+    String content;
+}
+
+class TestReplication extends BaseTest {
+
+    void testReplication() {
+        var port1 = 8888;
+        var port2 = 9999;
+
+        // Start a server on port 8888 configured with a peer on port 9999.
+        var configuration = new String[class String];
+        configuration[StorageWorker.STORAGE_ROOT_PREF] =
+            "/tmp/storage-" + port1 + "-" + Random.randomUInt();
+        configuration[StorageWorker.STORAGE_PEER_PREF] =
+            "http://localhost:" + port2;
+        var processor1 = new RestProcessor(configuration);
+        registerStorageWorkers(processor1);
+        processor1.start();
+        var server1 = new BackgroundServer();
+        server1.listen(port1, processor1);
+
+        // Start a server on port 9999 configured with a peer on port 8888.
+        configuration = new String[class String];
+        configuration[StorageWorker.STORAGE_ROOT_PREF] =
+            "/tmp/storage-" + port2 + "-" + Random.randomUInt();
+        configuration[StorageWorker.STORAGE_PEER_PREF] =
+            "http://localhost:" + port1;
+        var processor2 = new RestProcessor(configuration);
+        registerStorageWorkers(processor2);
+        processor2.start();
+        var server2 = new BackgroundServer();
+        server2.listen(port2, processor2);
+
+        // Post item to port 8888.
+        var item = new StorageItem();
+        item.storageKey = "/a/b/c/key";
+        item.generation = 1;
+        item.content = "Hello, world!";
+        var op = send(processor1, Http.POST, StorageWorker.WORKER_PATH, item);
+        assert(op.success(), "failed post to storage");
+
+        // Wait for item to be replicated to port 9999.
+        var query = new Query();
+        query.set(StorageWorker.STORAGE_KEY, item.storageKey);
+        var found = false;
+        for (var count = 0; count < 10; count++) {
+            op = sendQuery(processor2, StorageWorker.WORKER_PATH, query);
+            if (op.success()) {
+                found = true;
+                break;
+            }
+            System.println("count=" + count + " not found yet");
+            System.sleep(1000);
+        }
+        assert(found, "item was not replicated");
+
+        // Clean up. We could also delete the two storage directories.
+        server1.close();
+        server2.close();
+        System.println(getFailureCount() == 0 ? "ok" : "FAILED");
+    }
+
+    static void main(String[] argv) {
+        Random.seedRandom();
+        new TestReplication().testReplication();
+    }
+}
