@@ -45,7 +45,7 @@ abstract class BaseTest {
 
     void assert(boolean value, String text) {
         if (!value) {
-            System.println(text);
+            System.println("FAIL: " + text);
             this.failureCount++;
         }
     }

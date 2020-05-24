@@ -1,6 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.http;
 import sanka.lang.Thread;
+import sanka.net.InetAddress;
 import sanka.net.Socket;
 
 /**
@@ -8,14 +9,21 @@ import sanka.net.Socket;
  * and start new threads to process and respond to requests.
  */
 class Server {
+    private int port;
+    private HttpProcessor processor;
     private Socket socket;
 
-    void listen(int port, HttpProcessor processor) {
+    Server(int port, HttpProcessor processor) {
+        this.port = port;
+        this.processor = processor;
+    }
+
+    void run() {
         this.socket = new Socket();
-        var status = this.socket.bind(port);
+        var status = this.socket.bind(this.port);
         if (status != 0) {
             close();
-            System.println("bind " + port + ": " + System.strerror(status));
+            System.println("bind " + this.port + ": " + System.strerror(status));
             return;
         }
         status = this.socket.listen(8);
@@ -24,13 +32,13 @@ class Server {
             System.println("listen: " + System.strerror(status));
             return;
         }
-        while (true) {
+        while (this.socket != null) {
             var connection = this.socket.accept();
             if (connection == null) {
                 System.println("accept: done");
                 break;
             }
-            var runnable = new ServerThread(connection, processor);
+            var runnable = new ServerThread(connection, this.processor);
             new Thread(runnable);
         }
         close();

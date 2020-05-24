@@ -1,0 +1,38 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.lang.Mutex;
+
+/**
+ * This is a bad implementation of a thread-safe cache. The biggest
+ * problem is that it does not manage memory at all. It stores
+ * everything until the thing is manually removed. Also, it does not
+ * use any intelligent concurrency algorithm. It locks the entire
+ * cache when necessary for thread-safety. So this is really just a
+ * proof of concept.
+ */
+class StorageCache {
+    private byte[][String] data;
+    private Mutex mutex;
+
+    StorageCache() {
+        this.data = new byte[][class String];
+        this.mutex = new Mutex();
+    }
+
+    void put(String key, byte[] value) {
+        this.mutex.lock();
+        this.data[key] = value;
+        this.mutex.unlock();
+    }
+
+    byte[] remove(String key) {
+        this.mutex.lock();
+        var value = this.data[key];
+        if (value != null) {
+            this.data.remove(key);
+        }
+        this.mutex.unlock();
+        return value;
+    }
+}
+

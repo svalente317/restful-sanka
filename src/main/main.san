@@ -86,8 +86,8 @@ class RestfulSanka {
         processor.register(NotebooksWorker.WORKER_PATH,
                            new NotebooksWorker());
         processor.start();
-        var server = new Server();
-        server.listen(port, processor);
+        var server = new Server(port, processor);
+        server.run();
         return 0;
     }
 }

@@ -1,8 +1,11 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
-import sanka.http.BackgroundServer;
 import sanka.http.Http;
+import sanka.http.HttpClient;
 import sanka.http.Query;
+import sanka.http.Server;
+import sanka.http.URL;
+import sanka.lang.Thread;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
 import sanka.util.Random;
@@ -13,6 +16,11 @@ serializable class StorageItem {
     String content;
 }
 
+/**
+ * Test that objects posted to storage are replicated to peer.
+ * This is an end-to-end test including StorageSenderWorker and
+ * StorageReceiverWorker.
+ */
 class TestReplication extends BaseTest {
 
     void testReplication() {
@@ -28,8 +36,8 @@ class TestReplication extends BaseTest {
         var processor1 = new RestProcessor(configuration);
         registerStorageWorkers(processor1);
         processor1.start();
-        var server1 = new BackgroundServer();
-        server1.listen(port1, processor1);
+        var server1 = new Server(port1, processor1);
+        new Thread(server1);
 
         // Start a server on port 9999 configured with a peer on port 8888.
         configuration = new String[class String];
@@ -40,8 +48,8 @@ class TestReplication extends BaseTest {
         var processor2 = new RestProcessor(configuration);
         registerStorageWorkers(processor2);
         processor2.start();
-        var server2 = new BackgroundServer();
-        server2.listen(port2, processor2);
+        var server2 = new Server(port2, processor2);
+        new Thread(server2);
 
         // Post item to port 8888.
         var item = new StorageItem();
@@ -49,22 +57,93 @@ class TestReplication extends BaseTest {
         item.generation = 1;
         item.content = "Hello, world!";
         var op = send(processor1, Http.POST, StorageWorker.WORKER_PATH, item);
-        assert(op.success(), "failed post to storage");
+        assert(op.success(), "failed to post " + item.storageKey);
 
         // Wait for item to be replicated to port 9999.
         var query = new Query();
         query.set(StorageWorker.STORAGE_KEY, item.storageKey);
         var found = false;
-        for (var count = 0; count < 10; count++) {
+        var count = 0;
+        for (count = 0; count < 10; count++) {
             op = sendQuery(processor2, StorageWorker.WORKER_PATH, query);
             if (op.success()) {
                 found = true;
                 break;
             }
-            System.println("count=" + count + " not found yet");
+            System.println("count=" + count + " not replicated yet");
             System.sleep(1000);
         }
         assert(found, "item was not replicated");
+
+        // Kill server2 so that replication cannot happen.
+        // server1 must remain available.
+        server2.close();
+
+        // Verify that server2 is down.
+        var url = new URL("http://localhost:" + port2 +
+                          StorageWorker.WORKER_PATH);
+        var success = new HttpClient().send(url, Http.GET, null);
+        // assert(!success, "server2 did not shut down");
+
+        // Post five items to port 8888.
+        var i = 0;
+        for (i = 1; i <= 5; i++) {
+            item = new StorageItem();
+            item.storageKey = "/item" + i;
+            item.generation = i;
+            item.content = "content " + i;
+            op = send(processor1, Http.POST, StorageWorker.WORKER_PATH, item);
+            assert(op.success(), "failed to post " + item.storageKey);
+        }
+
+        // Wait for replication to register failed send attempts
+        // and a non-empty queue.
+        var state = new StorageSenderWorkerState();
+        found = false;
+        for (count = 0; count < 10; count++) {
+            op = send(processor1, Http.GET,
+                      StorageSenderWorker.WORKER_PATH, null);
+            assert(op.success(), "failed to get storage-sender state");
+            op.parseBody(state);
+            if (state.queueSize > 0 && state.isFailing) {
+                found = true;
+                break;
+            }
+            System.println("count=" + count + " wait for queue to fill");
+            System.sleep(1000);
+        }
+        assert(found, "failed(1): " + state.toJson().toString());
+
+        // Repair server on port 9999.
+        server2 = new Server(port2, processor2);
+        new Thread(server2);
+
+        // Wait for queue to empty.
+        found = false;
+        for (count = 0; count < 10; count++) {
+            op = send(processor1, Http.GET,
+                      StorageSenderWorker.WORKER_PATH, null);
+            assert(op.success(), "failed to get storage-sender state");
+            op.parseBody(state);
+            if (state.queueSize == 0 && !state.isFailing) {
+                found = true;
+                break;
+            }
+            System.println("count=" + count + " wait for queue to empty");
+            System.sleep(1000);
+        }
+        assert(found, "failed(2): " + state.toJson().toString());
+
+        // Verify all 5 items replicated to server2.
+        for (i = 1; i <= 5; i++) {
+            query = new Query();
+            query.set(StorageWorker.STORAGE_KEY, "/item" +i);
+            op = sendQuery(processor2, StorageWorker.WORKER_PATH, query);
+            assert(op.success(), "failed to get item " + i);
+            op.parseBody(item);
+            assert(item.content == "content " + i,
+                   "bad item: " + item.toJson().toString());
+        }
 
         // Clean up. We could also delete the two storage directories.
         server1.close();

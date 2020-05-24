@@ -1,5 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.http;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
 
 class URL {
     String url;
@@ -13,6 +15,10 @@ class URL {
     URL() {}
 
     URL(String value) {
+        setUrl(value);
+    }
+
+    void setUrl(String value) {
         this.url = value;
         var idx = value.indexOf(':');
         if (idx <= 0) {
@@ -89,5 +95,23 @@ class URL {
             path = path + "#" + this.fragment;
         }
         return path;
+    }
+
+    /**
+     * To include URLs in Serializable classes.
+     */
+    JsonObject toJson() {
+        return null;
+    }
+
+    void fromJson(JsonObject obj) {
+    }
+
+    JsonElement toJsonElement() {
+        return new JsonElement().makeString(this.url);
+    }
+
+    void fromJsonElement(JsonElement element) {
+        setUrl(element.getAsString());
     }
 }

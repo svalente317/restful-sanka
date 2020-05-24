@@ -199,6 +199,7 @@ class StorageWorker extends RestWorker {
         this.lockManager.unlock(storageKey, false);
         if (bytes == null) {
             op.setErrorBody("not found: " + storageKey);
+            op.status = Http.NOT_FOUND;
             return;
         }
         op.setRawBody(bytes);
@@ -336,6 +337,7 @@ class StorageWorker extends RestWorker {
         this.lockManager.unlock(storageKey, false);
         if (!deleted) {
             op.setErrorBody("not found: " + storageKey);
+            op.status = Http.NOT_FOUND;
             return;
         }
     }

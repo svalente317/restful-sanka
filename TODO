@@ -1,24 +1,5 @@
-* CollectionWorker.onDelete
-
-* StorageWorker status code for NOT_FOUND?
-* LockManager.waitLock()
-* StorageWorker.validateKey()
-* StorageWorker unit tests
-* File.mkdirs()
-* storage based CollectionWorker
-* Serializable - support Integer
-* StorageWorker - cache generations?
-* randomLong()
-
-* Race condition in update resource in collection
-* CollectionWorker.onPost - return row from database
-* CollectionWorker.onPostResource - use JsonTable to get Statement
-* CollectionWorker.onPostResource - return row from database
-* CollectionWorker.onGet - useJsonTable to get Statement
-* CollectionWorker.onGetResource - useJsonTable to get Statement
-* CollectionWorker validate field name
-
 * support onPostCompleted for writing documentHistory?
+* StorageWorker - cache generations?
 
 * Server.san - use thread pool
 * HttpRequest.san - support repeated header

@@ -50,17 +50,19 @@ class HttpClient {
             Http.CONTENT_LENGTH + ": " + (body == null ? 0 : body.length) +
             "\r\n\r\n";
         socket.write(text.toByteArray());
-        socket.write(body);
+        if (body != null) {
+            socket.write(body);
+        }
 
         var lineReader = new LineReader(socket);
         var parser = new HttpParser(lineReader);
-        var responseLine = "null"; // TODO parser.parseResponseLine();
-        System.println(lineReader.readline());
-        this.status = Http.OK;
-        if (responseLine == null) {
+        var statusLine = parser.parseStatusLine();
+        if (statusLine == null) {
             socket.close();
             return false;
         }
+        this.httpVersion = statusLine[0];
+        this.status = System.parseInt(statusLine[1]);
         this.headers = new String[class String];
         while (true) {
             var header = parser.parseHeader();

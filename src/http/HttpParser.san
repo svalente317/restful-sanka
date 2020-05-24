@@ -148,4 +148,38 @@ class HttpParser {
     private boolean isSpace(byte ch) {
         return ch == ' ' || ch == '\t';
     }
+
+    /**
+     * RFC 2616: Response Status-Line is three tokens separated by
+     * single space.
+     *
+     * @return [httpVersion, statusCode, reasonPhrase]
+     */
+    String[] parseStatusLine() {
+        var line = this.lineReader.readline();
+        if (line == null) {
+            return null;
+        }
+        var result = new String[3];
+        var idx = line.indexOf(' ');
+        if (idx <= 0) {
+            return null;
+        }
+        result[0] = line.substring(0, idx);
+        line = line.substring(idx+1);
+        if (line.length() < 4) {
+            return null;
+        }
+        if (!(isDigit(line[0]) && isDigit(line[1]) && isDigit(line[2]) &&
+              line[3] == ' ')) {
+            return null;
+        }
+        result[1] = line.substring(0, 3);
+        result[2] = line.substring(4);
+        return result;
+    }
+
+    private boolean isDigit(byte ch) {
+        return ch >= '0' && ch <= '9';
+    }
 }
