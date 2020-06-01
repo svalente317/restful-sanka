@@ -283,7 +283,7 @@ class StorageWorker extends RestWorker {
             comma = ",";
         }
         body = body + "]}";
-        op.setRawBody(body.toByteArray());
+        op.setStringBody(body);
     }
 
     /**

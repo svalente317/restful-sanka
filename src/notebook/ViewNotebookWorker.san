@@ -1,0 +1,85 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.io.FileReader;
+import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
+
+class ViewNotebookWorker extends RestWorker {
+    const WORKER_PATH = "/view-notebook";
+    const NOTEBOOK_TEMPLATE = "/usr/local/share/html/notebook.tmpl";
+    const SCRIPT_MARKER = "@SCRIPT@";
+    const NOTEBOOK_QUERY = "notebook";
+    const PAGE_QUERY = "page";
+
+    private String header;
+    private String document;
+
+    String[] getDependencies() {
+        return new String[]{ NotebooksWorker.WORKER_PATH };
+    }
+
+    void onStart() {
+        var reader = new FileReader();
+        if (reader.open(NOTEBOOK_TEMPLATE) == 0) {
+            var bytes = reader.readFile();
+            var text = new String(bytes);
+            var idx = text.find(SCRIPT_MARKER);
+            if (idx >= 0) {
+                this.header = text.substring(0, idx);
+                this.document = text.substring(idx + SCRIPT_MARKER.length());
+            }
+        }
+    }
+
+    void onGet(RestOperation op) {
+        if (this.document == null) {
+            op.setErrorBody(WORKER_PATH + " template not found");
+            return;
+        }
+        var notebook = null;
+        var pageQuery = null;
+        if (op.query != null) {
+            var map = op.query.getMap();
+            if (map != null) {
+                notebook = map[NOTEBOOK_QUERY];
+                pageQuery = map[PAGE_QUERY];
+            }
+        }
+        if (notebook == null) {
+            op.setErrorBody("missing query parameter: " + NOTEBOOK_QUERY);
+            return;
+        }
+        var path = NotebooksWorker.WORKER_PATH + "/" + notebook;
+        var subOp = send(Http.GET, path, null);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        var state = new NotebookState();
+        subOp.parseBody(state);
+        if (state.documentIds == null || state.documentIds.length == 0) {
+            op.setErrorBody("notebook " + notebook + " corrupt");
+            return;
+        }
+        var page = 0;
+        if (pageQuery != null) {
+            page = System.parseInt(pageQuery);
+        }
+        if (page < 1) {
+            page = 1;
+        }
+        var numPages = state.documentIds.length;
+        if (page > numPages) {
+            page = numPages;
+        }
+        var middle = "var notebookId = '" + notebook +
+            "'; var documentPath = '" + DocumentContentWorker.WORKER_PATH +
+            "/" + state.documentIds[page-1] +
+            "'; var currentPage = " + page +
+            "; var numPages = " + numPages +
+            "; var documentContents = '[]';";
+        op.setStringBody(this.header + middle + this.document);
+    }
+}

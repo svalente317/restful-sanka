@@ -1,0 +1,77 @@
+// -*- mode: Java; -*-
+package sanka.rest.notebook;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.http.URLEncoder;
+import sanka.rest.RestOperation;
+import sanka.rest.RestWorker;
+
+class SelectNotebookWorker extends RestWorker {
+    const WORKER_PATH = "/select-notebook";
+
+    const TOP = "<html><body>Select notebook:<ul>";
+    const BOTTOM = "</ul>" +
+        "Or create a new notebook:" +
+        "<form method=\"post\">" +
+        "<ul>" +
+        "<li><label>Name:</label>" +
+        "<input type=\"text\" name=\"name\">" +
+        "</ul>" +
+        "<input type=\"submit\" value=\"OK\">" +
+        "</form>" +
+        "</body>" +
+        "</html>";
+
+    String[] getDependencies() {
+        return new String[]{ NotebooksWorker.WORKER_PATH,
+                             ViewNotebookWorker.WORKER_PATH };
+    }
+
+    void onGet(RestOperation op) {
+        var subOp = send(Http.GET, NotebooksWorker.WORKER_PATH, null);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        var collection = new NotebookCollectionState();
+        subOp.parseBody(collection);
+        var middle = "";
+        if (collection.items != null) {
+            for (var state : collection.items) {
+                middle = middle + "<li><a href=\"" +
+                    ViewNotebookWorker.WORKER_PATH + "?" +
+                    ViewNotebookWorker.NOTEBOOK_QUERY +
+                    "=" + state.id + "\">" +
+                    URLEncoder.get().encode(state.name) + "</a>";
+            }
+        }
+        var body = TOP + middle + BOTTOM;
+        op.setStringBody(body);
+    }
+
+    void onPost(RestOperation op) {
+        var query = op.query;
+        var body = op.getStringBody();
+        if (body != null) {
+            query = new Query(body);
+        }
+        var name = null;
+        if (query != null) {
+            name = query.getMap()["name"];
+        }
+        if (name == null) {
+            op.setErrorBody("must specify notebook name");
+            return;
+        }
+        var state = new NotebookState();
+        state.name = name;
+        var subOp = send(Http.POST, NotebooksWorker.WORKER_PATH, state);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        subOp.parseBody(state);
+        // TODO redirect to new notebook
+        onGet(op);
+    }
+}

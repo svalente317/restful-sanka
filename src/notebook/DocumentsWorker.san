@@ -1,9 +1,11 @@
 // -*- mode: Java; -*-
 package sanka.rest.notebook;
 import sanka.http.Http;
+import sanka.io.File;
 import sanka.json.JsonObject;
 import sanka.rest.RestOperation;
 import sanka.rest.storage.CollectionWorker;
+import sanka.util.Random;
 
 serializable class DocumentState {
     String id;
@@ -14,16 +16,24 @@ serializable class DocumentState {
 
 class DocumentsWorker extends CollectionWorker {
     const WORKER_PATH = "/documents";
+    const DOCUMENT_ROOT_PREF = "notebook.document.root";
 
     // As long as the user keeps saving every five minutes, it all remains
     // a single session.
     const SESSION_TIME = 5 * 60 * 1000;
 
-    const DOCUMENT_ROOT = "/tmp/";
+    private String rootDirectory;
 
-    DocumentsWorker() {
+    void onStart() {
         setPrimaryKeyField("id");
         setPrimaryKeyGenerationPrefix("d");
+        this.rootDirectory = getConfig(DOCUMENT_ROOT_PREF);
+        if (this.rootDirectory != null) {
+            new File(this.rootDirectory).mkdirs();
+            if (!this.rootDirectory.endsWith("/")) {
+                this.rootDirectory = this.rootDirectory + "/";
+            }
+        }
     }
 
     /**
@@ -31,6 +41,9 @@ class DocumentsWorker extends CollectionWorker {
      * generate new filenames, and when to overwrite existing files.
      */
     String validatePost(RestOperation op, JsonObject oldRow) {
+        if (this.rootDirectory == null) {
+            return WORKER_PATH + " is not configured";
+        }
         var state = new DocumentState();
         op.parseBody(state);
         state.userId = op.userId;
@@ -49,7 +62,7 @@ class DocumentsWorker extends CollectionWorker {
                 if (current.filename != null) {
                     postDocumentHistory(current);
                 }
-                state.filename = generateFilename();
+                state.filename = this.rootDirectory + Random.randomUuid();
             }
         }
         op.setBody(state);
@@ -63,10 +76,6 @@ class DocumentsWorker extends CollectionWorker {
         history.filename = state.filename;
         history.lastUpdate = state.lastUpdate;
         send(Http.POST, DocumentHistoryWorker.WORKER_PATH, history);
-    }
-
-    private String generateFilename() {
-        return DOCUMENT_ROOT + System.currentTimeMillis();
     }
 
     // TODO onDelete(): postDocumentHistory() if necessary

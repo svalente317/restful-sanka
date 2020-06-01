@@ -43,6 +43,7 @@ class ServerThread {
                 }
             }
             var response = new HttpResponse();
+            System.println(request.method + " " + request.uri);
             this.processor.process(request, response);
             sendResponse(response);
         }

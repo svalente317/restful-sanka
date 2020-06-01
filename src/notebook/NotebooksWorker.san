@@ -14,6 +14,10 @@ serializable class NotebookState {
     String[] documentIds;
 }
 
+serializable class NotebookCollectionState {
+    NotebookState[] items;
+}
+
 class NotebooksWorker extends CollectionWorker {
     const WORKER_PATH = "/notebooks";
 

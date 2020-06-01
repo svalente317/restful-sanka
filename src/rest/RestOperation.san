@@ -85,6 +85,15 @@ class RestOperation {
         return true;
     }
 
+    String getStringBody() {
+        var bytes = getBody();
+        return bytes == null ? null : new String(bytes);
+    }
+
+    void setStringBody(String value) {
+        setRawBody(value.toByteArray());
+    }
+
     /**
      * setJsonBody() and getJsonBody() support CollectionWorker.
      * They are infrastructure-only. You probably don't want to use them.

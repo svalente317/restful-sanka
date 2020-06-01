@@ -10,6 +10,8 @@ import sanka.rest.notebook.DocumentContentWorker;
 import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
 import sanka.rest.notebook.NotebooksWorker;
+import sanka.rest.notebook.SelectNotebookWorker;
+import sanka.rest.notebook.ViewNotebookWorker;
 import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageLogWorker;
 import sanka.rest.storage.StorageReceiverWorker;
@@ -25,9 +27,8 @@ class RestfulSanka {
     const USAGE = "Usage: restful-server [-p port] [-d storage] [-o peer]";
 
     static int main(String[] argv) {
+        var configuration = new String[class String];
         var port = 8888;
-        var storageRoot = null;
-        var peerUrl = null;
         var error = false;
         for (var idx = 1; idx < argv.length; idx++) {
             switch (argv[idx]) {
@@ -37,11 +38,15 @@ class RestfulSanka {
                 break;
             case "-d":
                 idx++;
-                storageRoot = argv[idx];
+                configuration[StorageWorker.STORAGE_ROOT_PREF] = argv[idx];
                 break;
             case "-o":
                 idx++;
-                peerUrl = argv[idx];
+                configuration[StorageWorker.STORAGE_PEER_PREF] = argv[idx];
+                break;
+            case "-t":
+                idx++;
+                configuration[DocumentsWorker.DOCUMENT_ROOT_PREF] = argv[idx];
                 break;
             default:
                 error = true;
@@ -51,13 +56,6 @@ class RestfulSanka {
         if (error) {
             System.println(USAGE);
             return -1;
-        }
-        var configuration = new String[class String];
-        if (storageRoot != null) {
-            configuration[StorageWorker.STORAGE_ROOT_PREF] = storageRoot;
-        }
-        if (peerUrl != null) {
-            configuration[StorageWorker.STORAGE_PEER_PREF] = peerUrl;
         }
         var processor = new RestProcessor(configuration);
         processor.register(StorageLogWorker.WORKER_PATH,
@@ -77,6 +75,13 @@ class RestfulSanka {
         processor.register(UsersWorker.WORKER_PATH,
                            new UsersWorker());
 
+        processor.register("/quill", new DirectoryCollectionWorker
+                           ("/usr/local/share/quill"));
+        processor.register("/jquery", new DirectoryCollectionWorker
+                           ("/usr/local/share/jquery"));
+        processor.register("/html", new DirectoryCollectionWorker
+                           ("/usr/local/share/html"));
+
         processor.register(DocumentContentWorker.WORKER_PATH,
                            new DocumentContentWorker());
         processor.register(DocumentHistoryWorker.WORKER_PATH,
@@ -85,6 +90,10 @@ class RestfulSanka {
                            new DocumentsWorker());
         processor.register(NotebooksWorker.WORKER_PATH,
                            new NotebooksWorker());
+        processor.register(ViewNotebookWorker.WORKER_PATH,
+                           new ViewNotebookWorker());
+        processor.register(SelectNotebookWorker.WORKER_PATH,
+                           new SelectNotebookWorker());
         processor.start();
         var server = new Server(port, processor);
         server.run();
