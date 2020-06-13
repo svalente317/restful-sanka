@@ -1,0 +1,71 @@
+// -*- mode: Java; -*-
+package sanka.leveldb;
+
+class UnparseNumber {
+    private String[] numberWords;
+    private String[] decadeWords;
+    private String[] thousandWords;
+
+    UnparseNumber() {
+        this.numberWords = new String[]{
+            "zero", "one", "two", "three", "four", "five",
+            "six", "seven", "eight", "nine", "ten",
+            "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+            "sixteen", "seventeen", "eighteen", "nineteen"
+        };
+        this.decadeWords = new String[]{
+            "twenty", "thirty", "forty", "fifty",
+            "sixty", "seventy", "eighty", "ninety"
+        };
+        this.thousandWords = new String[]{
+            null, "thousand", "million", "billion"
+        };
+    }
+    
+    String numberToEnglish(int number) {
+        if (number == 0) {
+            return "Zero";
+        }
+        var result = null;
+        for (var word : this.thousandWords) {
+            var remainder = number % 1000;
+            if (remainder > 0) {
+                var words = smallNumberToEnglish(remainder);
+                if (word != null) {
+                    words = words + " " + word;
+                }
+                if (result == null) {
+                    result = words;
+                } else {
+                    result = words + " " + result;
+                }
+            }
+            number = number / 1000;
+        }
+        return result;
+    }
+    
+    String smallNumberToEnglish(int number) {
+        var result = null;
+        var hundreds = number / 100;
+        var remainder = number % 100;
+        if (hundreds > 0) {
+            result = this.numberWords[hundreds] + " hundred";
+        }
+        if (remainder == 0) {
+            return result;
+        }
+        var result2 = null;
+        if (remainder < 20) {
+            result2 = this.numberWords[remainder];
+        }
+        else {
+            result2 = this.decadeWords[(remainder/10)-2];
+            remainder = remainder % 10;
+            if (remainder > 0) {
+                result2 = result2 + " " + this.numberWords[remainder];
+            }
+        }
+        return result == null ? result2 : result + " " + result2;
+    }
+}

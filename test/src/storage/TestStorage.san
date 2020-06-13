@@ -6,6 +6,7 @@ import sanka.http.Query;
 import sanka.http.Server;
 import sanka.http.URL;
 import sanka.lang.Thread;
+import sanka.rest.BaseRestTest;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
 import sanka.util.Random;
@@ -16,23 +17,22 @@ serializable class StorageItem {
     String content;
 }
 
-/**
- * Test that objects posted to storage are replicated to peer.
- * This is an end-to-end test including StorageSenderWorker and
- * StorageReceiverWorker.
- */
-class TestReplication extends BaseTest {
-
+class TestStorage extends BaseRestTest {
+    /**
+     * Test that objects posted to storage are replicated to peer.
+     * This is an end-to-end test including StorageSenderWorker and
+     * StorageReceiverWorker.
+     */
     void testReplication() {
         var port1 = 8888;
         var port2 = 9999;
+        var directory1 = "/tmp/storage-" + port1 + "-" + Random.randomUInt();
+        var directory2 = "/tmp/storage-" + port2 + "-" + Random.randomUInt();
 
         // Start a server on port 8888 configured with a peer on port 9999.
         var configuration = new String[class String];
-        configuration[StorageWorker.STORAGE_ROOT_PREF] =
-            "/tmp/storage-" + port1 + "-" + Random.randomUInt();
-        configuration[StorageWorker.STORAGE_PEER_PREF] =
-            "http://localhost:" + port2;
+        configuration[StorageWorker.STORAGE_ROOT_PREF] = directory1;
+        configuration[StorageWorker.STORAGE_PEER_PREF] = "http://localhost:" + port2;
         var processor1 = new RestProcessor(configuration);
         registerStorageWorkers(processor1);
         processor1.start();
@@ -41,10 +41,8 @@ class TestReplication extends BaseTest {
 
         // Start a server on port 9999 configured with a peer on port 8888.
         configuration = new String[class String];
-        configuration[StorageWorker.STORAGE_ROOT_PREF] =
-            "/tmp/storage-" + port2 + "-" + Random.randomUInt();
-        configuration[StorageWorker.STORAGE_PEER_PREF] =
-            "http://localhost:" + port1;
+        configuration[StorageWorker.STORAGE_ROOT_PREF] = directory2;
+        configuration[StorageWorker.STORAGE_PEER_PREF] = "http://localhost:" + port1;
         var processor2 = new RestProcessor(configuration);
         registerStorageWorkers(processor2);
         processor2.start();
@@ -145,14 +143,16 @@ class TestReplication extends BaseTest {
                    "bad item: " + item.toJson().toString());
         }
 
-        // Clean up. We could also delete the two storage directories.
         server1.close();
         server2.close();
-        System.println(getFailureCount() == 0 ? "ok" : "FAILED");
+        removeDirectory(directory2);
+        removeDirectory(directory1);
     }
 
-    static void main(String[] argv) {
+    static int main(String[] argv) {
         Random.seedRandom();
-        new TestReplication().testReplication();
+        var test = new TestStorage();
+        test.testReplication();
+        return test.exit();
     }
 }

@@ -1,0 +1,93 @@
+// -*- mode: Java; -*-
+package sanka.leveldb;
+import sanka.test.BaseTest;
+import sanka.util.Random;
+
+class TestLevelDB extends BaseTest {
+
+    void testLevelDB() {
+        // Shuffle the numbers from 1 to 1000.
+        var numbers = new int[1000];
+        for (var i = 0; i < numbers.length; i++) {
+            numbers[i] = i+1;
+        }
+        shuffle(numbers);
+
+        // Create new LevelDB database.
+        var directoryName = "/tmp/" + Random.randomUuid();
+        var db = new LevelDB();
+        var error = db.open(directoryName);
+        assert(error == null, error);
+
+        // Write the numbers from 1 to 1000 to the database in a random order.
+        // Write values that are a simple transformation of the keys.
+        var unparser = new UnparseNumber();
+        for (var number: numbers) {
+            var key = unparser.numberToEnglish(number);
+            var value = key.toByteArray();
+            reverse(value);
+            db.put(key, value);
+        }
+
+        // Iterate over the keys in alphabetical order, which is neither
+        // the order that they were written, nor the numerical order.
+        var iter = db.iterator();
+        var count = 0;
+        iter.seekToFirst();
+        while (iter.valid()) {
+            var key = iter.key();
+            var value = iter.values();
+            count++;
+            iter.next();
+        }
+        iter.destroy();
+        assertEquals(1000, count, "iterate over db");
+
+        iter = db.iterator();
+        iter.seekToLast();
+        assertString("two hundred two", iter.key(), "seekToLast");
+        assertString("owt derdnuh owt", iter.values(), "seekToLast value");
+        iter.prev();
+        assertString("two hundred twenty two", iter.key(), "prev");
+        assertString("owt ytnewt derdnuh owt", iter.values(), "prev value");
+        iter.seekToFirst();
+        assertString("eight", iter.key(), "seekToFirst");
+        iter.seek("one hundred e");
+        assertString("one hundred eight", iter.key(), "seek");
+        assertString("thgie derdnuh eno", iter.values(), "seek value");
+        iter.destroy();
+
+        // TODO test get
+        // TODO test gets
+        // TODO test getResults
+        // TODO test delete
+        db.close();
+        removeDirectory(directoryName);
+    }
+
+    static void shuffle(int[] arr) {
+        for (var i = 0; i < arr.length-1; i++) {
+            var other = i+1 + System.random(arr.length-1-i);
+            var tmp = arr[i];
+            arr[i] = arr[other];
+            arr[other] = tmp;
+        }
+    }
+
+    static void reverse(byte[] arr) {
+        var x = arr.length-1;
+        for (var i = 0; i < arr.length/2; i++) {
+            var tmp = arr[i];
+            arr[i] = arr[x];
+            arr[x] = tmp;
+            x--;
+        }
+    }
+
+    static int main(String[] argv) {
+        Random.seedRandom();
+        var test = new TestLevelDB();
+        test.testLevelDB();
+        return test.exit();
+    }
+}

@@ -9,14 +9,14 @@ singleton class URLEncoder {
     URLEncoder() {
         this.valid = new boolean[128];
         this.reserved = new boolean[128];
-        for (var c1 = 'A'; c1 <= 'Z'; c1++) {
-            this.valid[c1] = true;
+        for (var ch = 'A'; ch <= 'Z'; ch++) {
+            this.valid[ch] = true;
         }
-        for (var c2 = 'a'; c2 <= 'z'; c2++) {
-            this.valid[c2] = true;
+        for (var ch = 'a'; ch <= 'z'; ch++) {
+            this.valid[ch] = true;
         }
-        for (var c3 = '0'; c3 <= '9'; c3++) {
-            this.valid[c3] = true;
+        for (var ch = '0'; ch <= '9'; ch++) {
+            this.valid[ch] = true;
         }
         this.valid['-'] = true;
         this.valid['_'] = true;

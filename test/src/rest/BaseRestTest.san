@@ -1,14 +1,17 @@
 // -*- mode: Java; -*-
-package sanka.rest.storage;
+package sanka.rest;
 import sanka.http.Http;
 import sanka.http.Query;
 import sanka.json.Serializable;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
+import sanka.rest.storage.StorageLogWorker;
+import sanka.rest.storage.StorageReceiverWorker;
+import sanka.rest.storage.StorageSenderWorker;
+import sanka.rest.storage.StorageWorker;
+import sanka.test.BaseTest;
 
-abstract class BaseTest {
-
-    private int failureCount;
+abstract class BaseRestTest extends BaseTest {
 
     void registerStorageWorkers(RestProcessor processor) {
         processor.register(StorageLogWorker.WORKER_PATH,
@@ -41,16 +44,5 @@ abstract class BaseTest {
         op.status = Http.OK;
         processor.processOperation(op);
         return op;
-    }
-
-    void assert(boolean value, String text) {
-        if (!value) {
-            System.println("FAIL: " + text);
-            this.failureCount++;
-        }
-    }
-
-    int getFailureCount() {
-        return this.failureCount;
     }
 }

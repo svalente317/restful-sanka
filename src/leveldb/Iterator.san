@@ -1,0 +1,80 @@
+// -*- mode: Java; -*-
+package sanka.leveldb;
+
+class Iterator {
+    c__include "leveldb/c.h";
+    c__field "leveldb_iterator_t *iter";
+    
+    Iterator(LevelDB db) {
+        c__stmt "this->iter = leveldb_create_iterator(db->db, db->readoptions)";
+    }
+    
+    void destroy() {
+        c__stmt "leveldb_iter_destroy(this->iter)";
+    }
+
+    boolean valid() {
+        c__stmt "return leveldb_iter_valid(this->iter)";
+    }
+
+    void seekToFirst() {
+        c__stmt "leveldb_iter_seek_to_first(this->iter)";
+    }
+
+    void seekToLast() {
+        c__stmt "leveldb_iter_seek_to_last(this->iter)";
+    }
+
+    void seek(String key) {
+        c__stmt "leveldb_iter_seek(this->iter, key, strlen(key))";
+    }
+
+    void next() {
+        c__stmt "leveldb_iter_next(this->iter)";
+    }
+    
+    void prev() {
+        c__stmt "leveldb_iter_prev(this->iter)";
+    }
+
+    String key() {
+        c__stmt "size_t size = 0";
+        c__stmt "struct array bytes";
+        c__stmt "bytes.data = leveldb_iter_key(this->iter, &size)";
+        c__stmt "if (bytes.data == NULL) return NULL";
+        c__stmt "bytes.length = (int) size";
+        c__stmt "const char *string = NEW_STRING(&bytes)";
+        c__stmt "return string";
+    }
+
+    byte[] value() {
+        c__stmt "size_t size = 0";
+        c__stmt "char *data = leveldb_iter_value(this->iter, &size)";
+        c__stmt "if (data == NULL) return NULL";
+        var isize = 0;
+        c__stmt "isize = (int) size";
+        var value = new byte[isize];
+        c__stmt "memcpy(value->data, data, isize)";
+        return value;
+    }
+
+    String values() {
+        c__stmt "size_t size = 0";
+        c__stmt "struct array bytes";
+        c__stmt "bytes.data = leveldb_iter_value(this->iter, &size)";
+        c__stmt "if (bytes.data == NULL) return NULL";
+        c__stmt "bytes.length = (int) size";
+        c__stmt "const char *string = NEW_STRING(&bytes)";
+        c__stmt "return string";
+    }
+
+    String error() {
+        c__stmt "char *error = NULL";
+        c__stmt "leveldb_iter_get_error(this->iter, &error)";
+        c__stmt "if (error == NULL) return NULL";
+        var copy = "";
+        c__stmt "copy = STRING_SUBSTRING(error, 0, 0, 1)";
+        c__stmt "leveldb_free(error)";
+        return copy;
+    }
+}

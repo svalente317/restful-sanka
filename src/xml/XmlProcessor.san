@@ -1,0 +1,10 @@
+// -*- mode: Java; -*-
+package sanka.xml;
+
+interface XmlProcessor {
+
+    void startElement(String tag, String[] attrs);
+    void handleData(String data);
+    void endElement(String tag);
+
+}

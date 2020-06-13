@@ -1,0 +1,122 @@
+// -*- mode: Java; -*-
+package sanka.leveldb;
+
+class Results {
+    byte[] value;
+    String error;
+}
+
+class LevelDB {
+    c__include "leveldb/c.h";
+    c__field "leveldb_t *db";
+    c__field "leveldb_options_t *options";
+    c__field "leveldb_writeoptions_t *writeoptions";
+    c__field "leveldb_readoptions_t *readoptions";
+    
+    LevelDB() {
+        c__stmt "this->options = leveldb_options_create()";
+        c__stmt "leveldb_options_set_create_if_missing(this->options, 1)";
+        c__stmt "this->writeoptions = leveldb_writeoptions_create()";
+        c__stmt "this->readoptions = leveldb_readoptions_create()";
+    }
+
+    String open(String name) {
+        c__stmt "char *error = NULL";
+        c__stmt "this->db = leveldb_open(this->options, name, &error)";
+        c__stmt "return LevelDB__copyAndFree(error)";
+    }
+    
+    void close() {
+        c__stmt "if (this->db != NULL) leveldb_close(this->db)";
+        c__stmt "this->db = NULL";
+    }
+
+    String put(String key, byte[] value) {
+        c__stmt "char *error = NULL";
+        c__stmt "leveldb_put(this->db, this->writeoptions, key, strlen(key), value->data, value->length, &error)";
+        c__stmt "return LevelDB__copyAndFree(error)";
+    }
+
+    String delete(String key) {
+        c__stmt "char *error = NULL";
+        c__stmt "leveldb_delete(this->db, this->writeoptions, key, strlen(key), &error)";
+        c__stmt "return LevelDB__copyAndFree(error)";
+    }
+
+    byte[] get(String key) {
+        c__stmt "char *error = NULL";
+        c__stmt "size_t size = 0";
+        c__stmt "char *data = leveldb_get(this->db, this->readoptions, key, strlen(key), &size, &error)";
+        c__stmt "if (error != NULL) leveldb_free(error)";
+        c__stmt "if (data == NULL) return NULL";
+        var isize = 0;
+        c__stmt "isize = (int) size";
+        var value = new byte[isize];
+        c__stmt "memcpy(value->data, data, isize)";
+        c__stmt "leveldb_free(data)";
+        return value;
+    }
+
+    String gets(String key) {
+        c__stmt "char *error = NULL";
+        c__stmt "size_t size = 0";
+        c__stmt "struct array bytes";
+        c__stmt "bytes.data = leveldb_get(this->db, this->readoptions, key, strlen(key), &size, &error)";
+        c__stmt "if (error != NULL) leveldb_free(error)";
+        c__stmt "if (bytes.data == NULL) return NULL";
+        c__stmt "bytes.length = (int) size";
+        c__stmt "const char *string = NEW_STRING(&bytes)";
+        c__stmt "leveldb_free(bytes.data)";
+        c__stmt "return string";
+    }
+
+    /**
+     * The default get() function does not distinguish between
+     * "the key is not defined in the database" and
+     * "there was an I/O error trying to read the database".
+     *
+     * getResults() does.
+     */
+    Results getResults(String key) {
+        c__stmt "char *error = NULL";
+        c__stmt "size_t size = 0";
+        c__stmt "char *data = leveldb_get(this->db, this->readoptions, key, strlen(key), &size, &error)";
+        var dataIsNotNull = false;
+        c__stmt "dataIsNotNull = (data != NULL)";
+        var results = new Results();
+        if (dataIsNotNull) {
+            var isize = 0;
+            c__stmt "isize = (int) size";
+            results.value = new byte[isize];
+            c__stmt "memcpy(results->value->data, data, isize)";
+            c__stmt "leveldb_free(data)";
+        }
+        c__stmt "results->error = LevelDB__copyAndFree(error)";
+        return results;
+    }
+
+    private static String copyAndFree(String error) {
+        if (error == null) {
+            return null;
+        }
+        var copy = "";
+        c__stmt "copy = STRING_SUBSTRING(error, 0, 0, 1)";
+        c__stmt "leveldb_free((char *) error)";
+        return copy;
+    }
+
+    Iterator iterator() {
+        return new Iterator(this);
+    }
+
+    // LEVELDB_EXPORT int leveldb_major_version();
+    // LEVELDB_EXPORT int leveldb_minor_version();
+
+    // Missing:
+    // * snapshots
+    // * compact range
+    // * repair and destroy db
+    // * write batch
+    // * options
+    // * filter, cache, env
+}
