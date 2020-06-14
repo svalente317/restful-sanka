@@ -21,6 +21,7 @@ class StorageWorker extends RestWorker {
     const GENERATION = "generation";
     const COLLECTION = ".collection";
     const TRUE = "true";
+    const RESOURCE_FILENAME = "#resource";
 
     const MAX_COLLECTION_TOTAL_SIZE = 16 * 1024 * 1024;
 
@@ -133,10 +134,11 @@ class StorageWorker extends RestWorker {
     }
 
     /**
-     * Read the object stored under the given key, as raw data.
+     * Read the object stored under the given key.
      */
     byte[] readBytes(String storageKey) {
-        var file = new File(this.rootDirectory, storageKey);
+        var directory = new File(this.rootDirectory, storageKey);
+        var file = new File(directory, RESOURCE_FILENAME);
         var reader = new FileReader();
         if (reader.open(file.getPath()) != 0) {
             return null;
@@ -145,8 +147,31 @@ class StorageWorker extends RestWorker {
     }
 
     /**
-     * Read the object stored under the given key, as a JsonObject.
+     * Write the object to storage under the given key.
      */
+    void writeBytes(String storageKey, byte[] bytes) {
+        var file = new File(this.stageDirectory, Random.randomUuid());
+        var writer = new FileWriter();
+        if (writer.open(file.getPath()) != 0) {
+            return;
+        }
+        writer.write(bytes);
+        writer.close();
+        var directory = new File(this.rootDirectory, storageKey);
+        directory.mkdirs();
+        var destFile = new File(directory, RESOURCE_FILENAME);
+        file.renameTo(destFile);
+    }
+
+    /**
+     * Delete the object stored under the given key.
+     */
+    boolean deleteBytes(String storageKey) {
+        var directory = new File(this.rootDirectory, storageKey);
+        var file = new File(directory, RESOURCE_FILENAME);
+        return file.delete();
+    }
+
     JsonObject readJsonObject(String storageKey) {
         var bytes = readBytes(storageKey);
         if (bytes == null) {
@@ -155,20 +180,8 @@ class StorageWorker extends RestWorker {
         return JsonObject.parse(new String(bytes));
     }
 
-    /**
-     * Write the given object to storage under the given key.
-     */
     void writeJsonObject(String storageKey, JsonObject obj) {
-        var file = new File(this.stageDirectory, Random.randomUuid());
-        var writer = new FileWriter();
-        if (writer.open(file.getPath()) != 0) {
-            return;
-        }
-        writer.write(obj.toString().toByteArray());
-        writer.close();
-        var destFile = new File(this.rootDirectory, storageKey);
-        destFile.getParent().mkdirs();
-        file.renameTo(destFile);
+        writeBytes(storageKey, obj.toString().toByteArray());
     }
 
     /**
@@ -331,9 +344,10 @@ class StorageWorker extends RestWorker {
             return;
         }
         postToStorageLog(op, storageKey);
-        var file = new File(this.rootDirectory, storageKey);
-        var deleted = file.delete();
-        // TODO postDeleteToStorageSender(deleted);
+        var deleted = deleteBytes(storageKey);
+        if (deleted) {
+            postToStorageSender(op);
+        }
         this.lockManager.unlock(storageKey, false);
         if (!deleted) {
             op.setErrorBody("not found: " + storageKey);
@@ -377,8 +391,9 @@ class StorageWorker extends RestWorker {
             return;
         }
         var outgoing = new RestOperation();
-        outgoing.method = Http.POST;
+        outgoing.method = op.method;
         outgoing.path = StorageSenderWorker.WORKER_PATH;
+        outgoing.query = op.query;
         outgoing.setRawBody(op.getBody());
         sendOperation(outgoing);
     }

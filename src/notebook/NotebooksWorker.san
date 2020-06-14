@@ -12,6 +12,7 @@ serializable class NotebookState {
     long created;
     long lastUpdate;
     String[] documentIds;
+    String insertAfter;
 }
 
 serializable class NotebookCollectionState {
@@ -71,6 +72,13 @@ class NotebooksWorker extends CollectionWorker {
             return "cannot change notebook created time";
         }
         state.lastUpdate = System.currentTimeMillis();
+        if (state.insertAfter != null) {
+            if (state.documentIds == null) {
+                state.documentIds =
+                    insertAfter(current.documentIds, state.insertAfter);
+            }
+            state.insertAfter = null;
+        }
         if (state.documentIds == null) {
             state.documentIds = current.documentIds;
             op.setBody(state);
@@ -100,6 +108,22 @@ class NotebooksWorker extends CollectionWorker {
         // Documents that remain in currentIds must be garbage collected.
         op.setBody(state);
         return null;
+    }
+
+    private String[] insertAfter(String[] arr, String target) {
+        var newarr = new String[arr.length+1];
+        var found = false;
+        var idx = 0;
+        for (var item : arr) {
+            newarr[idx] = item;
+            idx++;
+            if ((!found) && (item == target)) {
+                found = true;
+                newarr[idx] = "";
+                idx++;
+            }
+        }
+        return found ? newarr : null;
     }
 
     /**

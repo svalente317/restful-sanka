@@ -78,6 +78,8 @@ class StorageSenderWorker extends RestWorker {
         op.setBody(null);
     }
 
+    // TODO onDelete
+
     /**
      * Run the background thread. Send resources that the worker adds to the
      * queue.

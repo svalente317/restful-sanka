@@ -74,12 +74,15 @@ class ViewNotebookWorker extends RestWorker {
         if (page > numPages) {
             page = numPages;
         }
+        var documentId = state.documentIds[page-1];
         var middle = "var notebookId = '" + notebook +
-            "'; var documentPath = '" + DocumentContentWorker.WORKER_PATH +
-            "/" + state.documentIds[page-1] +
+            "'; var documentId = '" + documentId +
+            "'; var notebookPath = '" +
+            NotebooksWorker.WORKER_PATH + "/" + notebook +
+            "'; var documentPath = '" +
+            DocumentContentWorker.WORKER_PATH + "/" + documentId +
             "'; var currentPage = " + page +
-            "; var numPages = " + numPages +
-            "; var documentContents = '[]';";
+            "; var numPages = " + numPages + ";";
         op.setStringBody(this.header + middle + this.document);
     }
 }
