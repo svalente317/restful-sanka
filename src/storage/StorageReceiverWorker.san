@@ -1,6 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
 import sanka.http.Http;
+import sanka.http.Query;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
@@ -34,6 +35,7 @@ class StorageReceiverWorker extends RestWorker {
         storageOp.method = Http.POST;
         storageOp.path = StorageWorker.WORKER_PATH;
         storageOp.setRawBody(op.getBody());
+        ifDeleteThenChangeOperation(storageOp);
         sendOperation(storageOp);
         if (!storageOp.success()) {
             // We should make a note somewhere locally that this update
@@ -50,7 +52,21 @@ class StorageReceiverWorker extends RestWorker {
         op.setBody(null);
     }
 
-    // TODO onDelete
+    private void ifDeleteThenChangeOperation(RestOperation op) {
+        var obj = op.getJsonBody();
+        if (obj == null) {
+            return;
+        }
+        var generation = obj.getInt(StorageWorker.GENERATION);
+        if (generation >= 0) {
+            return;
+        }
+        var storageKey = obj.getString(StorageWorker.STORAGE_KEY);
+        op.method = Http.DELETE;
+        op.setBody(null);
+        op.query = new Query();
+        op.query.set(StorageWorker.STORAGE_KEY, storageKey);
+    }
 
     // We could implement onGet() to expose replication data -- list of
     // peers, count of successfully received updates, list of conflicts,

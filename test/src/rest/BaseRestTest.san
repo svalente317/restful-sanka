@@ -45,4 +45,15 @@ abstract class BaseRestTest extends BaseTest {
         processor.processOperation(op);
         return op;
     }
+
+    RestOperation sendDelete(RestProcessor processor, String path,
+                             Query query) {
+        var op = new RestOperation();
+        op.method = Http.DELETE;
+        op.path = path;
+        op.query = query;
+        op.status = Http.OK;
+        processor.processOperation(op);
+        return op;
+    }
 }

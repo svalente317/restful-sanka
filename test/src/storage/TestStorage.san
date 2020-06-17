@@ -73,6 +73,24 @@ class TestStorage extends BaseRestTest {
         }
         assert(found, "item was not replicated");
 
+        // Delete item on port 9999.
+        op = sendDelete(processor2, StorageWorker.WORKER_PATH, query);
+        assert(op.success(), "failed to delete " + item.storageKey);
+        
+        // Wait for delete to be replicated to port 8888.
+        var deleted = false;
+        count = 0;
+        for (count = 0; count < 10; count++) {
+            op = sendQuery(processor1, StorageWorker.WORKER_PATH, query);
+            if (op.status == Http.NOT_FOUND) {
+                deleted = true;
+                break;
+            }
+            System.println("count=" + count + " not deleted yet");
+            System.sleep(1000);
+        }
+        assert(deleted, "delete was not replicated");
+
         // Kill server2 so that replication cannot happen.
         // server1 must remain available.
         server2.close();

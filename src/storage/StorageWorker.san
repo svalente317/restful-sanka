@@ -7,6 +7,7 @@ import sanka.io.FileReader;
 import sanka.io.FileWriter;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
+import sanka.json.Serializable;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 import sanka.util.Random;
@@ -90,7 +91,7 @@ class StorageWorker extends RestWorker {
             postToStorageLog(op, storageKey);
             writeJsonObject(storageKey, obj);
             op.setJsonBody(obj);
-            postToStorageSender(op);
+            postToStorageSender(op, null);
         }
         this.lockManager.unlock(storageKey, true);
     }
@@ -346,7 +347,10 @@ class StorageWorker extends RestWorker {
         postToStorageLog(op, storageKey);
         var deleted = deleteBytes(storageKey);
         if (deleted) {
-            postToStorageSender(op);
+            var obj = new JsonObject();
+            obj.setString(STORAGE_KEY, storageKey);
+            obj.setInt(GENERATION, -1);
+            postToStorageSender(op, obj);
         }
         this.lockManager.unlock(storageKey, false);
         if (!deleted) {
@@ -383,7 +387,7 @@ class StorageWorker extends RestWorker {
      * peer. StorageSender will write the necessary log message after
      * the resource has been replicated.
      */
-    private void postToStorageSender(RestOperation op) {
+    private void postToStorageSender(RestOperation op, JsonObject body) {
         if (this.peerUrl == null) {
             return;
         }
@@ -391,10 +395,13 @@ class StorageWorker extends RestWorker {
             return;
         }
         var outgoing = new RestOperation();
-        outgoing.method = op.method;
+        outgoing.method = Http.POST;
         outgoing.path = StorageSenderWorker.WORKER_PATH;
-        outgoing.query = op.query;
-        outgoing.setRawBody(op.getBody());
+        if (body == null) {
+            outgoing.setRawBody(op.getBody());
+        } else {
+            outgoing.setJsonBody(body);
+        }
         sendOperation(outgoing);
     }
 }
