@@ -15,7 +15,7 @@ serializable class DocumentState {
 }
 
 class DocumentsWorker extends CollectionWorker {
-    const WORKER_PATH = "/documents";
+    const WORKER_PATH = "/notebook/documents";
     const DOCUMENT_ROOT_PREF = "notebook.document.root";
 
     // As long as the user keeps saving every five minutes, it all remains

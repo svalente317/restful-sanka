@@ -7,7 +7,7 @@ import sanka.rest.RestOperation;
 import sanka.rest.RestWorker;
 
 class ViewNotebookWorker extends RestWorker {
-    const WORKER_PATH = "/view-notebook";
+    const WORKER_PATH = "/notebook/view-notebook";
     const NOTEBOOK_TEMPLATE = "/usr/local/share/html/notebook.tmpl";
     const SCRIPT_MARKER = "@SCRIPT@";
     const NOTEBOOK_QUERY = "notebook";

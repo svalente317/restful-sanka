@@ -5,7 +5,6 @@ import sanka.rest.RestProcessor;
 import sanka.rest.examples.DirectoryCollectionWorker;
 import sanka.rest.examples.EchoWorker;
 import sanka.rest.examples.ReverseWorker;
-import sanka.rest.examples.UsersWorker;
 import sanka.rest.notebook.DocumentContentWorker;
 import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
@@ -72,15 +71,6 @@ class RestfulSanka {
                            new EchoWorker());
         processor.register(ReverseWorker.WORKER_PATH,
                            new ReverseWorker());
-        processor.register(UsersWorker.WORKER_PATH,
-                           new UsersWorker());
-
-        processor.register("/quill", new DirectoryCollectionWorker
-                           ("/usr/local/share/quill"));
-        processor.register("/jquery", new DirectoryCollectionWorker
-                           ("/usr/local/share/jquery"));
-        processor.register("/html", new DirectoryCollectionWorker
-                           ("/usr/local/share/html"));
 
         processor.register(DocumentContentWorker.WORKER_PATH,
                            new DocumentContentWorker());

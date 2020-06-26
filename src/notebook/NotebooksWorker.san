@@ -20,7 +20,7 @@ serializable class NotebookCollectionState {
 }
 
 class NotebooksWorker extends CollectionWorker {
-    const WORKER_PATH = "/notebooks";
+    const WORKER_PATH = "/notebook/notebooks";
 
     NotebooksWorker() {
         setPrimaryKeyField("id");

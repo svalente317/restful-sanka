@@ -12,7 +12,7 @@ serializable class DocumentHistoryState {
 }
 
 class DocumentHistoryWorker extends CollectionWorker {
-    const WORKER_PATH = "/documentHistory";
+    const WORKER_PATH = "/notebook/documentHistory";
 
     DocumentHistoryWorker() {
         setPrimaryKeyField("id");
