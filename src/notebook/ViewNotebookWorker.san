@@ -2,38 +2,56 @@
 package sanka.rest.notebook;
 import sanka.http.Http;
 import sanka.http.Query;
+import sanka.io.File;
 import sanka.io.FileReader;
+import sanka.io.FileStats;
 import sanka.rest.RestOperation;
 import sanka.rest.RestWorker;
 
 class ViewNotebookWorker extends RestWorker {
     const WORKER_PATH = "/notebook/view-notebook";
-    const NOTEBOOK_TEMPLATE = "/usr/local/share/html/notebook.tmpl";
+    const TEMPLATE_FILENAME = "notebook.tmpl";
     const SCRIPT_MARKER = "@SCRIPT@";
     const NOTEBOOK_QUERY = "notebook";
     const PAGE_QUERY = "page";
 
+    private File templateFile;
     private String header;
     private String document;
+    private long cacheLastModified;
 
     String[] getDependencies() {
         return new String[]{ NotebooksWorker.WORKER_PATH };
     }
 
     void onStart() {
+        var home = System.getenv("HOME");
+        this.templateFile = new File(new File(home), TEMPLATE_FILENAME);
+    }
+
+    private void refresh() {
+        var stats = new FileStats();
+        if (this.templateFile.getStats(stats, true) != 0) {
+            return;
+        }
+        if (stats.lastModified == this.cacheLastModified) {
+            return;
+        }
         var reader = new FileReader();
-        if (reader.open(NOTEBOOK_TEMPLATE) == 0) {
+        if (reader.open(this.templateFile.getPath()) == 0) {
             var bytes = reader.readFile();
             var text = new String(bytes);
             var idx = text.find(SCRIPT_MARKER);
             if (idx >= 0) {
                 this.header = text.substring(0, idx);
                 this.document = text.substring(idx + SCRIPT_MARKER.length());
+                this.cacheLastModified = stats.lastModified;
             }
         }
     }
 
     void onGet(RestOperation op) {
+        refresh();
         if (this.document == null) {
             op.setErrorBody(WORKER_PATH + " template not found");
             return;
