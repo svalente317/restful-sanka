@@ -1,4 +1,4 @@
-SANKA_FILES = src/http/*.san src/rest/*.san src/storage/*.san \
+SANKA_FILES = src/http/*.san src/rest/*.san src/auth/*.san src/storage/*.san \
 	      src/notebook/*.san src/examples/*.san src/main/*.san
 
 

@@ -1,0 +1,92 @@
+<html>
+<head>
+<style>
+#footer img, form, #spacer {
+    float: left;
+    height: 64px;
+}
+#pagenumber form, input {
+    font-size: 18px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+</style>
+</head>
+<body>
+<link href="/quill/quill.snow.css" rel="stylesheet"></link>
+<script src="/quill/quill.js"></script>
+<script src="/jquery/jquery.min.js"></script>
+<script>
+@SCRIPT@
+</script>
+<div style="margin-top:1%;margin-left:5%;margin-right:5%;height:86%">
+  <div id="editor" style="font-size:20px"></div>
+  <div style="height:10px"></div>
+  <div id="footer">
+    <img src="/images/b1.png">
+    <img src="/images/b2.png" onClick="gotoPage(1)">
+    <img src="/images/b3.png">
+    <img src="/images/b4.png" onClick="gotoPage(currentPage-1)">
+    <img src="/images/b3.png">
+    <img src="/images/b5.png" onClick="gotoPage(currentPage+1)">
+    <img src="/images/b3.png">
+    <img src="/images/b6.png" onClick="gotoPage(numPages)">
+    <img src="/images/b7.png">
+    <span id="spacer" style="width:16px;"></span>
+    <div id="pagenumber">
+      <form id="pagenumberform" style="line-height:64px;">
+        Page <input id="currentPage" type="text" size="1"/> of </form>
+    </div>
+    <span id="spacer" style="width:16px;"></span>
+    <img src="/images/add.png" onClick="add()">
+  </div>
+</div>
+<script>
+  var toolbarOptions = [
+      [{'header': [1, 2, 3, false]}],
+      ['bold', 'italic', 'underline'],
+      ['code-block'],
+      [{'list': 'ordered'}, {'list': 'bullet'}],
+      [{'indent': '-1'}, {'indent': '+1'}],
+      [{'color': []}],
+      [{'font': []}],
+  ];
+  var quill = new Quill('#editor', {
+      modules: { toolbar: toolbarOptions },
+      theme: 'snow'
+  });
+  $.get(documentPath, function(documentContents) {
+      quill.setContents(JSON.parse(documentContents));
+  });
+  var line = document.getElementById("pagenumberform");
+  line.innerHTML = line.innerHTML + numPages;
+  document.getElementById("currentPage").value = currentPage;
+
+  function gotoPage(pageNumber) {
+      var contents = JSON.stringify(quill.getContents().ops);
+      var newLocation = null;
+      if (pageNumber > 0 && pageNumber <= numPages) {
+          newLocation = '?notebook=' + notebookId + '&page=' + pageNumber;
+      }
+      // TODO if page is unchanged then go directly to newLocation
+      $.post(documentPath, contents, function() {
+          if (newLocation != null) {
+              window.location.href = newLocation;
+          }
+      });
+  }
+
+  function add() {
+      var contents = JSON.stringify(quill.getContents().ops);
+      // TODO if page is unchanged then go directly to add.
+      $.post(documentPath, contents, function() {
+          var body = {"insertAfter": documentId};
+          $.post(notebookPath, JSON.stringify(body), function() {
+              // TODO get new page number from response
+              window.location.href = '?notebook=' + notebookId +
+                  '&page=' + (currentPage+1);
+          });
+      });
+  }
+</script>
+</body>
+</html>

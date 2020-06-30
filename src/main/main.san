@@ -2,7 +2,8 @@
 package sanka.rest.main;
 import sanka.http.Server;
 import sanka.rest.RestProcessor;
-import sanka.rest.examples.DirectoryCollectionWorker;
+import sanka.rest.auth.LoginWorker;
+import sanka.rest.auth.UsersWorker;
 import sanka.rest.examples.EchoWorker;
 import sanka.rest.examples.ReverseWorker;
 import sanka.rest.notebook.DocumentContentWorker;
@@ -16,6 +17,7 @@ import sanka.rest.storage.StorageLogWorker;
 import sanka.rest.storage.StorageReceiverWorker;
 import sanka.rest.storage.StorageSenderWorker;
 import sanka.rest.storage.StorageWorker;
+import sanka.util.Random;
 
 /**
  * Start a REST server listening on port 8888.
@@ -26,6 +28,7 @@ class RestfulSanka {
     const USAGE = "Usage: restful-server [-p port] [-d storage] [-o peer]";
 
     static int main(String[] argv) {
+        Random.seedRandom();
         var configuration = new String[class String];
         var port = 8888;
         var error = false;
@@ -57,6 +60,11 @@ class RestfulSanka {
             return -1;
         }
         var processor = new RestProcessor(configuration);
+        processor.register(LoginWorker.WORKER_PATH,
+                           new LoginWorker());
+        processor.register(UsersWorker.WORKER_PATH,
+                           new UsersWorker());
+
         processor.register(StorageLogWorker.WORKER_PATH,
                            new StorageLogWorker());
         processor.register(StorageWorker.WORKER_PATH,
@@ -67,6 +75,7 @@ class RestfulSanka {
                            new StorageSenderWorker());
         processor.register(PrimaryKeyWorker.WORKER_PATH,
                            new PrimaryKeyWorker());
+
         processor.register(EchoWorker.WORKER_PATH,
                            new EchoWorker());
         processor.register(ReverseWorker.WORKER_PATH,
@@ -84,6 +93,7 @@ class RestfulSanka {
                            new ViewNotebookWorker());
         processor.register(SelectNotebookWorker.WORKER_PATH,
                            new SelectNotebookWorker());
+
         processor.start();
         var server = new Server(port, processor);
         server.run();

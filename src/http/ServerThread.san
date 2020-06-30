@@ -11,7 +11,7 @@ class ServerThread {
 
     private Socket connection;
     private HttpProcessor processor;
-    
+
     ServerThread(Socket connection, HttpProcessor processor) {
         this.connection = connection;
         this.processor = processor;
@@ -42,6 +42,7 @@ class ServerThread {
                     break;
                 }
             }
+            CookieProcessor.parseCookies(request);
             var response = new HttpResponse();
             System.println(request.method + " " + request.uri);
             this.processor.process(request, response);
@@ -67,13 +68,21 @@ class ServerThread {
     private void sendResponse(HttpResponse response) {
         var reason = StatusCodes.get().getDescription(response.status);
         var text = Http.VERSION + " " + response.status + " " + reason + "\r\n";
-        if (response.headers[Http.DATE] == null) {
+        if (response.headers == null || response.headers[Http.DATE] == null) {
             var date = System.formatTime(Http.RFC822_FORMAT,
                 System.currentTimeMillis(), false);
             text = text + Http.DATE + ": " + date + "\r\n";
         }
-        for (var field, value : response.headers) {
-            text = text + field + ": " + value + "\r\n";
+        if (response.headers != null) {
+            for (var field, value : response.headers) {
+                text = text + field + ": " + value + "\r\n";
+            }
+        }
+        if (response.cookies != null) {
+            var headers = CookieProcessor.unparseCookies(response.cookies);
+            for (var header : headers) {
+                text = text + header + "\r\n";
+            }
         }
         var length = response.body != null ? response.body.length : 0;
         text = text + Http.CONTENT_LENGTH + ": " +  length + "\r\n";

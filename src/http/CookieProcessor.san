@@ -1,0 +1,73 @@
+// -*- mode: Java; -*-
+package sanka.http;
+import sanka.io.LineReader;
+import sanka.net.Socket;
+
+class CookieProcessor {
+    /**
+     * In the HttpRequest, parse the Cookie header into the map of cookie
+     * names and values.
+     */
+    static void parseCookies(HttpRequest request) {
+        var text = request.headers[Http.COOKIE];
+        if (text == null) {
+            return;
+        }
+        request.cookies = new String[class String];
+        while (true) {
+            var idx = text.indexOf(';');
+            var next = null;
+            if (idx >= 0) {
+                var start = idx + 1;
+                var length = text.length();
+                while (start < length && text[start] == ' ') {
+                    start++;
+                }
+                if (start < length) {
+                    next = text.substring(start);
+                }
+                text = text.substring(0, idx);
+            }
+            idx = text.indexOf('=');
+            var value = null;
+            if (idx >= 0) {
+                value = text.substring(idx+1);
+                text = text.substring(0, idx);
+            }
+            request.cookies[text] = value;
+            if (next == null) {
+                break;
+            }
+            text = next;
+        }
+    }
+
+    /**
+     * Unparse the array of Cookies into an array of Set-Cookie headers.
+     */
+    static String[] unparseCookies(Cookie[] cookies) {
+        if (cookies == null) {
+            return null;
+        }
+        var headers = new String[cookies.length];
+        for (var idx = 0; idx < cookies.length; idx++) {
+            var cookie = cookies[idx];
+            var value = cookie.name + "=" + cookie.value;
+            // TODO how to use cookie.maxAge?
+            if (cookie.domain != null) {
+                value = value + "; Domain=" + cookie.domain;
+            }
+            if (cookie.path != null) {
+                value = value + "; Path=" + cookie.path;
+            }
+            if (cookie.secure) {
+                value = value + "; Secure";
+            }
+            if (cookie.httpOnly) {
+                value = value + "; HttpOnly";
+            }
+            headers[idx] = Http.SET_COOKIE + ": " + value;
+        }
+        return headers;
+    }
+}

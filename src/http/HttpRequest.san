@@ -9,6 +9,7 @@ class HttpRequest {
     String uri;
     String httpVersion;
     String[String] headers;
+    String[String] cookies;
     byte[] body;
 
     HttpRequest() {

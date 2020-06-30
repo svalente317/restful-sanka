@@ -1,0 +1,12 @@
+// -*- mode: Java; -*-
+package sanka.http;
+
+serializable class Cookie {
+    String name;
+    String value;
+    long maxAge;
+    String domain;
+    String path;
+    boolean secure;
+    boolean httpOnly;
+}

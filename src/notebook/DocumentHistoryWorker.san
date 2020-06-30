@@ -5,7 +5,7 @@ import sanka.rest.storage.CollectionWorker;
 serializable class DocumentHistoryState {
     String id;
     String documentId;
-    int userId;
+    String userId;
     String filename;
     long lastUpdate;
     int generation;

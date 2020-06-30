@@ -1,0 +1,68 @@
+// -*- mode: Java; -*-
+package sanka.rest.auth;
+import sanka.http.Http;
+import sanka.http.HttpRequest;
+import sanka.rest.RestOperation;
+import sanka.rest.storage.CollectionWorker;
+import sanka.util.Base64;
+
+serializable class UserState {
+    String username;
+    String password;
+    String fullName;
+}
+
+/**
+ * UsersWorker manages a collection of users.
+ */
+class UsersWorker extends CollectionWorker {
+    const WORKER_PATH = "/auth/users";
+
+    void onStart() {
+        setPrimaryKeyField("username");
+        getProcessor().addAuthenticator(this);
+    }
+
+    /**
+     * Implement the HttpAuthenticator interface defined in RestProcessor.
+     * Authenticate incoming HTTP requests by comparing the username and
+     * password in the Basic Authorization header to the data in this
+     * collection.
+     */
+    boolean authenticate(HttpRequest request, RestOperation op) {
+        var value = request.headers[Http.AUTHORIZATION];
+        if (value == null) {
+            return false;
+        }
+        var prefix = Http.BASIC + " ";
+        if (!value.startsWith(prefix)) {
+            return false;
+        }
+        value = value.substring(prefix.length());
+        var bytes = Base64.get().decode(value);
+        if (bytes == null || bytes.length == 0) {
+            return false;
+        }
+        value = new String(bytes);
+        var idx = value.indexOf(':');
+        if (idx <= 0) {
+            return false;
+        }
+        var username = value.substring(0, idx);
+        var password = value.substring(idx+1);
+        var path = WORKER_PATH + "/" + username;
+        var subop = send(Http.GET, path, null);
+        if (!subop.success()) {
+            return false;
+        }
+        var userState = new UserState();
+        if (!subop.parseBody(userState)) {
+            return false;
+        }
+        if (password != userState.password) {
+            return false;
+        }
+        op.userId = path;
+        return true;
+    }
+}

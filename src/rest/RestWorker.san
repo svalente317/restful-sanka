@@ -34,6 +34,10 @@ abstract class RestWorker {
         return new String[0];
     }
 
+    RestProcessor getProcessor() {
+        return this.processor;
+    }
+
     String getConfig(String key) {
         return this.processor.getConfig(key);
     }

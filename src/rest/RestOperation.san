@@ -3,6 +3,7 @@ package sanka.rest;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.json.Serializable;
+import sanka.http.Cookie;
 import sanka.http.Http;
 import sanka.http.Query;
 import sanka.lang.Object;
@@ -35,7 +36,7 @@ import sanka.lang.Object;
  *    to get the bytes that it must send.
  */
 class RestOperation {
-    int userId;
+    String userId;
     String method;
     String path;
     String key;
@@ -44,6 +45,8 @@ class RestOperation {
     private JsonObject jsonBody;
     int status;
     String source;
+    String[String] headers;
+    Cookie[] cookies;
 
     boolean success() {
         return this.status == Http.OK;
@@ -111,5 +114,20 @@ class RestOperation {
             }
         }
         return this.jsonBody;
+    }
+
+    void addHeader(String name, String value) {
+        if (this.headers == null) {
+            this.headers = new String[class String];
+        }
+        this.headers[name] = value;
+    }
+
+    void addCookie(Cookie cookie) {
+        if (this.cookies == null) {
+            this.cookies = new Cookie[]{ cookie };
+        } else {
+            this.cookies.add(cookie);
+        }
     }
 }

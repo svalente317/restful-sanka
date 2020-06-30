@@ -1,0 +1,32 @@
+// -*- mode: Java; -*-
+package sanka.rest.auth;
+import sanka.http.Cookie;
+import sanka.http.Http;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+import sanka.util.Random;
+
+class LoginWorker extends RestWorker {
+    const WORKER_PATH = "/auth/login";
+
+    /**
+     * If the request is not authenticated, then respond with a challenge
+     * for Basic authentication. Technically, the challenge should contain
+     * a "realm" parameter. We don't worry about this minor bug because
+     * we really shouldn't use Basic authentication anyway.
+     */
+    void onGet(RestOperation op) {
+        if (op.userId == null) {
+            op.status = Http.UNAUTHORIZED;
+            op.addHeader(Http.WWW_AUTHENTICATE, Http.BASIC);
+            op.setBody(null);
+            return;
+        }
+        op.setStringBody("usedId=" + op.userId);
+        var cookie = new Cookie();
+        cookie.name = "session";
+        cookie.value = Random.randomUuid();
+        cookie.path = "/notebook/";
+        op.addCookie(cookie);
+    }
+}

@@ -8,6 +8,10 @@ import sanka.http.Query;
 import sanka.http.URL;
 import sanka.http.URLEncoder;
 
+interface HttpAuthenticator {
+    boolean authenticate(HttpRequest request, RestOperation op);
+}
+
 /**
  * RestProcessor is basically a registrar. Initially, you tell it which
  * RestWorkers service which namespaces. Then, the various subsystems,
@@ -18,11 +22,13 @@ class RestProcessor {
     private String[String] configuration;
     private RestWorker[String] workerMap;
     private boolean[String] isStarted;
+    private HttpAuthenticator[] authenticators;
 
     RestProcessor(String[String] configuration) {
         this.configuration = configuration;
         this.workerMap = new RestWorker[class String];
         this.isStarted = new boolean[class String];
+        this.authenticators = new HttpAuthenticator[0];
     }
 
     String getConfig(String key) {
@@ -32,6 +38,10 @@ class RestProcessor {
     void register(String path, RestWorker worker) {
         worker.setRestProcessor(this, path);
         this.workerMap[path] = worker;
+    }
+
+    void addAuthenticator(HttpAuthenticator instance) {
+        this.authenticators.add(instance);
     }
 
     void start() {
@@ -79,8 +89,15 @@ class RestProcessor {
         op.path = url.path;
         op.query = url.query == null ? null : new Query(url.query);
         op.setRawBody(request.body);
+        for (var instance : this.authenticators) {
+            if (instance.authenticate(request, op)) {
+                break;
+            }
+        }
         processOperation(op);
         response.status = op.status;
+        response.headers = op.headers;
+        response.cookies = op.cookies;
         response.body = op.getBody();
     }
 

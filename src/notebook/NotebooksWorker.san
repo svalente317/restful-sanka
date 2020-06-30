@@ -7,7 +7,7 @@ import sanka.rest.storage.CollectionWorker;
 
 serializable class NotebookState {
     String id;
-    int userId;
+    String userId;
     String name;
     long created;
     long lastUpdate;
@@ -143,7 +143,7 @@ class NotebooksWorker extends CollectionWorker {
      * Validate that the given documentId exists and is owned by the current
      * user.
      */
-    private boolean validateDocument(String id, int userId) {
+    private boolean validateDocument(String id, String userId) {
         var path = DocumentsWorker.WORKER_PATH + "/" + id;
         var op = send(Http.GET, DocumentsWorker.WORKER_PATH, null);
         if (!op.success()) {

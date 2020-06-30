@@ -9,7 +9,7 @@ import sanka.util.Random;
 
 serializable class DocumentState {
     String id;
-    int userId;
+    String userId;
     String filename;
     long lastUpdate;
 }
