@@ -4,16 +4,19 @@ import sanka.http.Cookie;
 import sanka.http.Http;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
-import sanka.util.Random;
 
 class LoginWorker extends RestWorker {
     const WORKER_PATH = "/auth/login";
+    const SESSION_COOKIE_NAME = "session";
 
     /**
      * If the request is not authenticated, then respond with a challenge
      * for Basic authentication. Technically, the challenge should contain
      * a "realm" parameter. We don't worry about this minor bug because
      * we really shouldn't use Basic authentication anyway.
+     *
+     * If the request is authenticated, then create and return a new cookie
+     * for a session for the authenticated user.
      */
     void onGet(RestOperation op) {
         if (op.userId == null) {
@@ -22,11 +25,32 @@ class LoginWorker extends RestWorker {
             op.setBody(null);
             return;
         }
-        op.setStringBody("usedId=" + op.userId);
+        var session = new SessionState();
+        session.cookie = generateCookie();
+        session.userId = op.userId;
+        session.created = System.currentTimeMillis();
+        var subOp = send(Http.POST, SessionsWorker.WORKER_PATH, session);
+        if (!subOp.success()) {
+            op.setFrom(subOp);
+            return;
+        }
+        subOp.parseBody(session);
         var cookie = new Cookie();
-        cookie.name = "session";
-        cookie.value = Random.randomUuid();
+        cookie.name = SESSION_COOKIE_NAME;
+        cookie.value = session.cookie;
         cookie.path = "/notebook/";
         op.addCookie(cookie);
+        op.setStringBody("{\"usedId\": \"" + op.userId + "\"}");
+    }
+
+    private String generateCookie() {
+        var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+            "abcdefghijklmnopqrstuvwxyz0123456789-";
+        var length = alphabet.length();
+        var data = new byte[22];
+        for (var idx = 0; idx < data.length; idx++) {
+            data[idx] = alphabet[System.random(length)];
+        }
+        return new String(data);
     }
 }

@@ -1,0 +1,56 @@
+// -*- mode: Java; -*-
+package sanka.rest.auth;
+import sanka.http.Http;
+import sanka.http.HttpRequest;
+import sanka.rest.RestOperation;
+import sanka.rest.storage.CollectionWorker;
+import sanka.util.Integer;
+
+serializable class SessionState {
+    String cookie;
+    String userId;
+    long created;
+    Integer duration;
+    Integer flags;
+}
+
+class SessionsWorker extends CollectionWorker {
+    const WORKER_PATH = "/auth/sessions";
+    const DEFAULT_DURATION = 8 * 3600 * 1000; // 8 hours in millis
+
+    void onStart() {
+        setPrimaryKeyField("cookie");
+        getProcessor().addAuthenticator(this);
+    }
+
+    /**
+     * Implement the HttpAuthenticator interface defined in RestProcessor.
+     * If the incoming HTTP request has a valid session cookie, then
+     * attach the session's userId to the request.
+     */
+    boolean authenticate(HttpRequest request, RestOperation op) {
+        if (request.cookies == null) {
+            return false;
+        }
+        var cookie = request.cookies[LoginWorker.SESSION_COOKIE_NAME];
+        if (cookie == null) {
+            return false;
+        }
+        var path = WORKER_PATH + "/" + cookie;
+        var subop = send(Http.GET, path, null);
+        if (!subop.success()) {
+            return false;
+        }
+        var session = new SessionState();
+        subop.parseBody(session);
+        var lifeEnd = session.created + (session.duration != null ?
+            session.duration.longValue() : DEFAULT_DURATION);
+        if (lifeEnd < System.currentTimeMillis()) {
+            // We could delete the cookie here.
+            return false;
+        }
+        op.userId = session.userId;
+        System.println("cookie id=" + op.userId);
+        return true;
+    }
+}

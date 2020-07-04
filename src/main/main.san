@@ -3,6 +3,7 @@ package sanka.rest.main;
 import sanka.http.Server;
 import sanka.rest.RestProcessor;
 import sanka.rest.auth.LoginWorker;
+import sanka.rest.auth.SessionsWorker;
 import sanka.rest.auth.UsersWorker;
 import sanka.rest.examples.EchoWorker;
 import sanka.rest.examples.ReverseWorker;
@@ -60,10 +61,6 @@ class RestfulSanka {
             return -1;
         }
         var processor = new RestProcessor(configuration);
-        processor.register(LoginWorker.WORKER_PATH,
-                           new LoginWorker());
-        processor.register(UsersWorker.WORKER_PATH,
-                           new UsersWorker());
 
         processor.register(StorageLogWorker.WORKER_PATH,
                            new StorageLogWorker());
@@ -75,6 +72,13 @@ class RestfulSanka {
                            new StorageSenderWorker());
         processor.register(PrimaryKeyWorker.WORKER_PATH,
                            new PrimaryKeyWorker());
+
+        processor.register(LoginWorker.WORKER_PATH,
+                           new LoginWorker());
+        processor.register(SessionsWorker.WORKER_PATH,
+                           new SessionsWorker());
+        processor.register(UsersWorker.WORKER_PATH,
+                           new UsersWorker());
 
         processor.register(EchoWorker.WORKER_PATH,
                            new EchoWorker());
