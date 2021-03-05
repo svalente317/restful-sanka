@@ -1,70 +1,78 @@
 Notebook Service
 ================
 
-1. To create a new notebook, post to `/notebooks`. In this example,
-we create a notebook named "cookbook".
+To use the Notebook service, you must specify a local directory for
+document storage. For example, to store documents in /tmp, run
+`restful-sanka -t /tmp/doc-storage`
+
+The notebook workers are all in the `/notebook` namespace.
+
+1. To create a new notebook, post in the `/notebook` namespace to
+`/notebooks`. In this example, we create a notebook named "cookbook".
 ```
-curl -s http://localhost:8888/notebooks -d '{"name":"cookbook"}'
+curl -s http://localhost:8888/notebook/notebooks -d '{"name":"cookbook"}'
 {
-    "id": "nb1",
-    "userId": 0,
+    "id": "nb-xxxxxx",
+    "userId": null,
     "name": "cookbook",
     "created": 1587284575975,
     "lastUpdate": 1587284575975,
-    "documentIds": ["d2"],
+    "documentIds": ["d-xxxxxx"],
     "generation": 1
 }
 ```
-2.  To view or update an existing notebook, post or get to `/notebooks/[id]`.
-Notice that "cookbook" was assigned notebook id `nb1`. View it:
+2.  To view or update an existing notebook, post or get to
+`/notebooks/[id]`.  Notice that "cookbook" was assigned an id with
+`nb-` and six random characters. To view it, update the id in:
 ```
-curl -s http://localhost:8888/notebooks/nb1
+curl -s http://localhost:8888/notebook/notebooks/nb-xxxxxx
 ```
 3. Notice that the system created a new blank document as the first page
-of the notebook. The document was given the document id `d2`.
+of the notebook. The document was given the document id that starts with
+`d-`.
 
 4. To view or update a document, post or get to `/documentContents/[id]`.
-Verify that document `d2` is currently a blank (zero byte) file:
+Verify that document the new document is currently a blank (zero byte) file:
 ```
-curl -s http://localhost:8888/documentContents/d2
+curl -s http://localhost:8888/notebook/documentContents/d-xxxxxx
 ```
 5. Notice that the documentContents worker does not respond with json.
 It responds with the raw data of the file.
 
-6. Update document d2 with some contents. You can post anything -- text,
+6. Update the document with some contents. You can post anything -- text,
 pdf, jpeg, mp3, etc. Post plain text:
 ```
-curl -s http://localhost:8888/documentContents/d2 -d $'Have a nice day.\n'
+curl -s http://localhost:8888/notebook/documentContents/d-xxxxxx -d $'Have a nice day.\n'
 ```
 7. Verify that the posted text has been saved.
 ```
-curl -s http://localhost:8888/documentContents/d2
+curl -s http://localhost:8888/notebook/documentContents/d-xxxxxx
 ```
 8. Add a new blank page to the notebook. To add blank pages, use the empty
 string as an id in the list of documentIds. The notebooks worker creates blank
 documents for each one, and it updates the list with the new documentIds.
 ```
-curl -s http://localhost:8888/notebooks/nb1 -d '{"documentIds":["d2",""]}'
+curl -s http://localhost:8888/notebook/notebooks/nb1 -d '{"documentIds":["d-xxxxxx",""]}'
 {
-    "id": "nb1",
-    "userId": 0,
+    "id": "nb-xxxxxx",
+    "userId": null,
     "name": "cookbook",
     "created": 1587284575975,
     "lastUpdate": 1587285444617,
-    "documentIds": ["d2", "d3"],
+    "documentIds": ["d-xxxxx", "d-yyyyyy"],
     "generation": 2
 }
 ```
 9. Reorder the pages, and include a blank page in between the two of them:
 ```
-curl -s http://localhost:8888/notebooks/nb1 -d '{"documentIds":["d3", "", "d2"]}'
+curl -s http://localhost:8888/notebook/notebooks/nb1 -d '{"documentIds":["d-yyyyyy", "", "d-xxxxxx"]}'
 {
     "id": "nb1",
-    "userId": 0,
+    "userId": null,
     "name": "cookbook",
     "created": 1587284575975,
     "lastUpdate": 1587285516294,
-    "documentIds": ["d3", "d4", "d2"],
+    "documentIds": ["d-y", "d-z", "d-x"],
     "generation": 3
 }
 ```

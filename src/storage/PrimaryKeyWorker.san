@@ -1,13 +1,8 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
-import sanka.http.Http;
-import sanka.http.Query;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
-
-serializable class PrimaryKeyWorkerState {
-    long value;
-}
+import sanka.util.Random;
 
 serializable class PrimaryKeyPostState {
     String prefix;
@@ -15,39 +10,12 @@ serializable class PrimaryKeyPostState {
 }
 
 /**
- * Post to this worker to generate an identifier which is not globally unique,
- * but is unique in the lifetime of this instance of this server.
+ * Post to this worker to generate an identifier which is likely to be unique
+ * over the lifetime of this instance of this server.
  */
 class PrimaryKeyWorker extends RestWorkerWithSave {
     const WORKER_PATH = "/primary-key";
-
-    /**
-     * Save state every 100 posts, so we know what keys are available
-     * on restart.
-     *
-     * For example, say that our startup state is value=500. Then we know
-     * that 500 is unavailable, and 600 is available. We don't know the
-     * state of 501 through 599, but they don't matter. We start generating
-     * new keys with 600.
-     */
-    const SAVE_FREQUENCY = 100;
-
-    private long currentValue;
-    private Mutex mutex;
-
-    void onStart() {
-        this.currentValue = 0;
-        this.mutex = new Mutex();
-
-        var workerState = new PrimaryKeyWorkerState();
-        if (load(workerState)) {
-            // The minus-one ensures that we will save new state on
-            // the first post, which is necessary.
-            this.currentValue = workerState.value + SAVE_FREQUENCY-1;
-        } else {
-            save(workerState);
-        }
-    }
+    const THIRTY_TWO = "abcdefghijklmnopqrstuvwxyz234567";
 
     void onPost(RestOperation op) {
         var postState = new PrimaryKeyPostState();
@@ -59,17 +27,14 @@ class PrimaryKeyWorker extends RestWorkerWithSave {
             op.setErrorBody("missing field: prefix");
             return;
         }
-        var value = 0L;
-        this.mutex.lock();
-        this.currentValue++;
-        value = this.currentValue;
-        this.mutex.unlock();
-        postState.key = postState.prefix + value;
-        op.setBody(postState);
-        if (value % SAVE_FREQUENCY == 0) {
-            var workerState = new PrimaryKeyWorkerState();
-            workerState.value = value;
-            save(workerState);
+        var id = Random.randomUInt();
+        var data = new byte[6];
+        for (var y = 0; y < 6; y++) {
+            var value = id & 31;
+            data[y] = THIRTY_TWO[value];
+            id = id >> 5;
         }
+        postState.key = postState.prefix + "-" + new String(data);
+        op.setBody(postState);
     }
 }
