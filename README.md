@@ -131,7 +131,7 @@ Define one of the fields as the primary key. For example, for our
 collection of users, we define "username" as the primary key.
 
 Then, create a RestWorker that extends `CollectionWorker`. For example,
-see [src/examples/UsersWorker.san](src/examples/UsersWorker.san).
+see [src/auth/UsersWorker.san](src/auth/UsersWorker.san).
 
 CollectionWorker supports these operations:
 * Add a resource: POST to the collection
@@ -142,11 +142,11 @@ CollectionWorker supports these operations:
 
 For example, create a new user:
 ```
-curl -s http://localhost:8888/users -d '{"username":"bob", "fullName":"Bob Hacker"}'
+curl -s http://localhost:8888/auth/users -d '{"username":"bob", "fullName":"Bob Hacker"}'
 ```
 Then, GET the collection:
 ```
-curl -s http://localhost:8888/users | json_reformat
+curl -s http://localhost:8888/auth/users | json_reformat
 {
     "items": [
         {
@@ -159,7 +159,7 @@ curl -s http://localhost:8888/users | json_reformat
 ```
 Or get just the resource with the primary key "bob":
 ```
-curl -s http://localhost:8888/users/bob | json_reformat
+curl -s http://localhost:8888/auth/users/bob | json_reformat
 {
     "username": "bob",
     "fullName": "Bob Hacker",
@@ -168,11 +168,11 @@ curl -s http://localhost:8888/users/bob | json_reformat
 ```
 Then update the existing resource:
 ```
-curl -s http://localhost:8888/users/bob -d '{"fullName":"Bob Q. Hacker"}'
+curl -s http://localhost:8888/auth/users/bob -d '{"fullName":"Bob Q. Hacker"}'
 ```
 And get the updated resource:
 ```
-curl -s http://localhost:8888/users/bob | json_reformat
+curl -s http://localhost:8888/auth/users/bob | json_reformat
 {
     "username": "bob",
     "fullName": "Bob Q. Hacker",
@@ -181,7 +181,7 @@ curl -s http://localhost:8888/users/bob | json_reformat
 ```
 Finally, delete the resource:
 ```
-curl -s -X DELETE http://localhost:8888/users/bob
+curl -s -X DELETE http://localhost:8888/auth/users/bob
 ```
 Of course, Restful Sanka is not intended to be used as a simple data
 store. There are infinitely better options for data storage. Restful
