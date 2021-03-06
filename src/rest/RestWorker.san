@@ -26,6 +26,10 @@ abstract class RestWorker {
         return this.workerPath;
     }
 
+    boolean isInternal() {
+        return false;
+    }
+
     boolean isCollection() {
         return false;
     }
