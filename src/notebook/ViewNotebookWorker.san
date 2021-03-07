@@ -10,12 +10,12 @@ import sanka.rest.RestWorker;
 
 class ViewNotebookWorker extends RestWorker {
     const WORKER_PATH = "/notebook/view-notebook";
-    const TEMPLATE_FILENAME = "notebook.tmpl";
+    const NOTEBOOK_TEMPLATE_PREF = "notebookTemplate";
     const SCRIPT_MARKER = "@SCRIPT@";
     const NOTEBOOK_QUERY = "notebook";
     const PAGE_QUERY = "page";
 
-    private File templateFile;
+    private String templateFilename;
     private String header;
     private String document;
     private long cacheLastModified;
@@ -25,20 +25,22 @@ class ViewNotebookWorker extends RestWorker {
     }
 
     void onStart() {
-        var home = System.getenv("HOME");
-        this.templateFile = new File(new File(home), TEMPLATE_FILENAME);
+        this.templateFilename = getConfig(NOTEBOOK_TEMPLATE_PREF);
     }
 
     private void refresh() {
+        if (this.templateFilename == null) {
+            return;
+        }
         var stats = new FileStats();
-        if (this.templateFile.getStats(stats, true) != 0) {
+        if (new File(this.templateFilename).getStats(stats, true) != 0) {
             return;
         }
         if (stats.lastModified == this.cacheLastModified) {
             return;
         }
         var reader = new FileReader();
-        if (reader.open(this.templateFile.getPath()) == 0) {
+        if (reader.open(this.templateFilename) == 0) {
             var bytes = reader.readFile();
             var text = new String(bytes);
             var idx = text.find(SCRIPT_MARKER);

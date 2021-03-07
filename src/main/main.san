@@ -10,6 +10,7 @@ import sanka.rest.auth.SessionsWorker;
 import sanka.rest.auth.UsersWorker;
 import sanka.rest.examples.EchoWorker;
 import sanka.rest.examples.ReverseWorker;
+import sanka.rest.examples.DirectoryCollectionWorker;
 import sanka.rest.notebook.DocumentContentWorker;
 import sanka.rest.notebook.DocumentHistoryWorker;
 import sanka.rest.notebook.DocumentsWorker;
@@ -110,6 +111,17 @@ class RestfulSanka {
                            new ViewNotebookWorker());
         processor.register(SelectNotebookWorker.WORKER_PATH,
                            new SelectNotebookWorker());
+
+        var exports = configuration.getArray("exports");
+        if (exports != null) {
+            for (var elem: exports) {
+                var directory = elem.getAsString();
+                var wkr = new DirectoryCollectionWorker(directory);
+                var idx = directory.lastIndexOf('/');
+                var path = directory.substring(idx);
+                processor.register(path, wkr);
+            }
+        }
 
         processor.start();
         var server = new Server(port, processor);
