@@ -26,10 +26,6 @@ abstract class RestWorker {
         return this.workerPath;
     }
 
-    boolean isInternal() {
-        return false;
-    }
-
     boolean isCollection() {
         return false;
     }
@@ -47,6 +43,10 @@ abstract class RestWorker {
     }
 
     void onStart() {
+    }
+
+    boolean onOperation(RestOperation op) {
+        return false;
     }
 
     void onGet(RestOperation op) {

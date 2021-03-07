@@ -5,6 +5,7 @@ import sanka.http.Query;
 import sanka.http.URLEncoder;
 import sanka.rest.RestOperation;
 import sanka.rest.RestWorker;
+import sanka.rest.auth.LoginWorker;
 
 class SelectNotebookWorker extends RestWorker {
     const WORKER_PATH = "/notebook/select-notebook";
@@ -28,6 +29,9 @@ class SelectNotebookWorker extends RestWorker {
     }
 
     void onGet(RestOperation op) {
+        if (!LoginWorker.isAuthenticated(op)) {
+            return;
+        }
         var subOp = send(Http.GET, NotebooksWorker.WORKER_PATH, null);
         if (!subOp.success()) {
             op.setFrom(subOp);

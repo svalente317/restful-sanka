@@ -65,7 +65,7 @@ class StorageLogWorker extends RestWorker {
             return;
         }
         var line = post.operation + post.storageKey + "\n";
-        this.logWriter.write(line.toByteArray());
+        this.logWriter.print(line);
         this.logWriter.sync();
         op.setBody(null);
     }

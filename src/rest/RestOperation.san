@@ -62,7 +62,9 @@ class RestOperation {
     }
 
     void setErrorBody(String error) {
-        this.status = Http.BAD_REQUEST;
+        if (this.status == Http.OK) {
+            this.status = Http.BAD_REQUEST;
+        }
         var state = new ErrorState();
         state.error = error;
         setBody(state);

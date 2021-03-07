@@ -7,6 +7,7 @@ import sanka.http.HttpResponse;
 import sanka.http.Query;
 import sanka.http.URL;
 import sanka.http.URLEncoder;
+import sanka.json.JsonObject;
 
 interface HttpAuthenticator {
     boolean authenticate(HttpRequest request, RestOperation op);
@@ -19,12 +20,12 @@ interface HttpAuthenticator {
  * to process a RestOperation.
  */
 class RestProcessor {
-    private String[String] configuration;
+    private JsonObject configuration;
     private RestWorker[String] workerMap;
     private boolean[String] isStarted;
     private HttpAuthenticator[] authenticators;
 
-    RestProcessor(String[String] configuration) {
+    RestProcessor(JsonObject configuration) {
         this.configuration = configuration;
         this.workerMap = new RestWorker[class String];
         this.isStarted = new boolean[class String];
@@ -32,7 +33,7 @@ class RestProcessor {
     }
 
     String getConfig(String key) {
-        return this.configuration[key];
+        return this.configuration.getString(key);
     }
 
     void register(String path, RestWorker worker) {
@@ -119,12 +120,15 @@ class RestProcessor {
                 }
             }
         }
-        if (worker == null || worker.isInternal()) {
+        if (worker == null) {
             op.setErrorBody("not found: " + URLEncoder.get().encode(path));
             op.status = Http.NOT_FOUND;
             return;
         }
         op.status = Http.OK;
+        if (worker.onOperation(op)) {
+            return;
+        }
         switch (op.method) {
         case Http.GET:
             worker.onGet(op);

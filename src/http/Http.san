@@ -25,6 +25,7 @@ class Http {
     const HOST = "Host";
     const USER_AGENT = "User-Agent";
     const WWW_AUTHENTICATE = "WWW-Authenticate";
+    const LOCATION = "Location";
 
     const COOKIE = "Cookie";
     const SET_COOKIE = "Set-Cookie";
@@ -40,7 +41,7 @@ class Http {
     // Partial Content = 206;
     // Multiple Choices = 300;
     // Moved Permanently = 301;
-    // Found = 302;
+    const FOUND = 302;
     // See Other = 303;
     // Not Modified = 304;
     // Use Proxy = 305;

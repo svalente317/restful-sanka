@@ -8,6 +8,7 @@ import sanka.rest.RestOperation;
 class LoginWorker extends RestWorker {
     const WORKER_PATH = "/auth/login";
     const SESSION_COOKIE_NAME = "session";
+    const REDIRECT_KEY = "redirect";
 
     /**
      * If the request is not authenticated, then respond with a challenge
@@ -41,6 +42,14 @@ class LoginWorker extends RestWorker {
         cookie.path = "/notebook/";
         op.addCookie(cookie);
         op.setStringBody("{\"usedId\": \"" + op.userId + "\"}");
+        if (op.query != null) {
+            var location = op.query.getMap()[REDIRECT_KEY];
+            if (location != null) {
+                // TODO verify location
+                op.status = Http.FOUND;
+                op.addHeader(Http.LOCATION, location);
+            }
+        }
     }
 
     private String generateCookie() {
@@ -52,5 +61,19 @@ class LoginWorker extends RestWorker {
             data[idx] = alphabet[System.random(length)];
         }
         return new String(data);
+    }
+
+    /**
+     * Help other workers to redirect to LoginWorker when appropriate.
+     */
+    static boolean isAuthenticated(RestOperation op) {
+        if (op.userId != null) {
+            return true;
+        }
+        var location = WORKER_PATH + "?" + REDIRECT_KEY + "=" + op.path;
+        op.status = Http.FOUND;
+        op.addHeader(Http.LOCATION, location);
+        op.setRawBody(null);
+        return false;
     }
 }

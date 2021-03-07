@@ -1,6 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.main;
 import sanka.http.Server;
+import sanka.io.File;
+import sanka.json.JsonObject;
+import sanka.json.JsonParser;
 import sanka.rest.RestProcessor;
 import sanka.rest.auth.LoginWorker;
 import sanka.rest.auth.SessionsWorker;
@@ -26,12 +29,13 @@ import sanka.util.Random;
  * Register Notebook workers.
  */
 class RestfulSanka {
-    const USAGE = "Usage: restful-server [-p port] [-d storage] [-o peer]";
+    const USAGE = "Usage: restful-sanka [-p port] [-d storage]";
+    const DEFAULT_PORT = 8888;
 
     static int main(String[] argv) {
         Random.seedRandom();
-        var configuration = new String[class String];
-        var port = 8888;
+        var port = 0;
+        var storageRoot = null;
         var error = false;
         for (var idx = 1; idx < argv.length; idx++) {
             switch (argv[idx]) {
@@ -41,15 +45,7 @@ class RestfulSanka {
                 break;
             case "-d":
                 idx++;
-                configuration[StorageWorker.STORAGE_ROOT_PREF] = argv[idx];
-                break;
-            case "-o":
-                idx++;
-                configuration[StorageWorker.STORAGE_PEER_PREF] = argv[idx];
-                break;
-            case "-t":
-                idx++;
-                configuration[DocumentsWorker.DOCUMENT_ROOT_PREF] = argv[idx];
+                storageRoot = argv[idx];
                 break;
             default:
                 error = true;
@@ -60,6 +56,23 @@ class RestfulSanka {
             System.println(USAGE);
             return -1;
         }
+
+        var home = System.getenv("HOME");
+        var file = new File(new File(home), ".restful-sanka.conf");
+        var element = JsonParser.parseFile(file.getPath());
+        var configuration = element == null ? new JsonObject() :
+            element.getAsObject();
+        if (storageRoot != null) {
+            configuration.setString(StorageWorker.STORAGE_ROOT_PREF, storageRoot);
+        }
+
+        if (port == 0) {
+            port = configuration.getInt("port");
+        }
+        if (port == 0) {
+            port = DEFAULT_PORT;
+        }
+
         var processor = new RestProcessor(configuration);
 
         processor.register(StorageLogWorker.WORKER_PATH,

@@ -1,8 +1,9 @@
 // -*- mode: Java; -*-
 package sanka.rest.examples;
 import sanka.io.File;
-import sanka.io.FileReader;
 import sanka.io.FileStats;
+import sanka.io.IOUtils;
+import sanka.http.Http;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 
@@ -67,28 +68,12 @@ class DirectoryCollectionWorker extends RestWorker {
 
     private void onGetFile(RestOperation op) {
         var file = new File(this.directory, op.key);
-        var stats = new FileStats();
-        var result = file.getStats(stats, true);
-        if (result != 0) {
-            op.setErrorBody(file.toString() + ": " + System.strerror(result));
+        var body = IOUtils.readFile(file.getPath());
+        if (body == null) {
+            op.status = Http.NOT_FOUND;
+            op.setErrorBody(file.toString() + ": file not found");
             return;
         }
-        var reader = new FileReader();
-        result = reader.open(file.getPath());
-        if (result != 0) {
-            op.setErrorBody(file.toString() + ": " + System.strerror(result));
-            return;
-        }
-        var buffer = new byte[stats.length];
-        var size = reader.read(buffer);
-        reader.close();
-        if (size < 0) {
-            op.setErrorBody(file.toString() + ": read failure");
-            return;
-        }
-        if (size < buffer.length) {
-            buffer.setLength(size);
-        }
-        op.setRawBody(buffer);
+        op.setRawBody(body);
     }
 }

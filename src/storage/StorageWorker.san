@@ -14,9 +14,8 @@ import sanka.util.Random;
 
 class StorageWorker extends RestWorker {
     const WORKER_PATH = "/storage";
-    const STORAGE_ROOT_PREF = "storage.root";
-    const STORAGE_PEER_PREF = "storage.peer";
-    const DEFAULT_ROOT_DIRECTORY = "/tmp/rest-storage";
+    const STORAGE_ROOT_PREF = "storageRoot";
+    const STORAGE_PEER_PREF = "storagePeer";
     const STAGE_DIRECTORY = ".stage";
     const STORAGE_KEY = "storageKey";
     const GENERATION = "generation";
@@ -34,7 +33,7 @@ class StorageWorker extends RestWorker {
     void onStart() {
         var root = getConfig(STORAGE_ROOT_PREF);
         if (root == null) {
-            root = DEFAULT_ROOT_DIRECTORY;
+            return;
         }
         this.lockManager = new LockManager();
         this.rootDirectory = new File(root);
