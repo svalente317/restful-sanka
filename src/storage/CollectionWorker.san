@@ -14,7 +14,7 @@ import sanka.rest.RestWorker;
 abstract class CollectionWorker extends RestWorker {
 
     private String primaryKeyField;
-    private String primaryKeyPrefix;
+    private boolean isPrimaryKeyGenerated;
 
     boolean isCollection() {
         return true;
@@ -28,8 +28,9 @@ abstract class CollectionWorker extends RestWorker {
      * Turn on functionality to generate a new primary key identifier
      * when a resource is posted to the collection.
      */
-    void setPrimaryKeyGenerationPrefix(String value) {
-        this.primaryKeyPrefix = value;
+    void setGeneratedKeyField(String value) {
+        this.primaryKeyField = value;
+        this.isPrimaryKeyGenerated = true;
     }
     
     /**
@@ -48,8 +49,8 @@ abstract class CollectionWorker extends RestWorker {
         }
         // Set or validate primary key.
         var key = null;
-        if (this.primaryKeyPrefix != null) {
-            key = generateKey();
+        if (this.isPrimaryKeyGenerated) {
+            key = generatePrimaryKey();
             obj.setString(this.primaryKeyField, key);
             op.setJsonBody(obj);
         } else {
@@ -200,9 +201,8 @@ abstract class CollectionWorker extends RestWorker {
     /**
      * Use PrimaryKeyWorker.
      */
-    private String generateKey() {
+    private String generatePrimaryKey() {
         var state = new PrimaryKeyPostState();
-        state.prefix = this.primaryKeyPrefix;
         var op = send(Http.POST, PrimaryKeyWorker.WORKER_PATH, state);
         if (op.success()) {
             op.parseBody(state);

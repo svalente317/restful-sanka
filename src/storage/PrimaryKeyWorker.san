@@ -5,7 +5,6 @@ import sanka.rest.RestOperation;
 import sanka.util.Random;
 
 serializable class PrimaryKeyPostState {
-    String prefix;
     String key;
 }
 
@@ -17,7 +16,7 @@ class PrimaryKeyWorker extends RestWorkerWithSave {
     const WORKER_PATH = "/primary-key";
     const THIRTY_TWO = "abcdefghijklmnopqrstuvwxyz234567";
 
-    private int counter;
+    private boolean have_bits;
     private int bits;
 
     void onPost(RestOperation op) {
@@ -26,29 +25,23 @@ class PrimaryKeyWorker extends RestWorkerWithSave {
             op.setErrorBody("invalid body");
             return;
         }
-        if (postState.prefix == null) {
-            op.setErrorBody("missing field: prefix");
-            return;
-        }
         var id = Random.randomUInt();
-        var data = new byte[7];
+        var data = new byte[8];
         for (var y = 0; y < 6; y++) {
             var value = id & 31;
             data[y] = THIRTY_TWO[value];
             id = id >> 5;
         }
-
-        // Add a 7th character, so we get more randomness than a uint32,
-        // rather than less. This also takes us out of the pseudo-random
-        // number generator stream, if there is such a thing.
-        if (this.counter % 6 == 0) {
+        if (!this.have_bits) {
             this.bits = Random.randomUInt();
         }
         data[6] = THIRTY_TWO[this.bits & 31];
         this.bits = this.bits >> 5;
-        this.counter = this.counter + 1;
+        data[7] = THIRTY_TWO[this.bits & 31];
+        this.bits = this.bits >> 5;
+        this.have_bits = !this.have_bits;
 
-        postState.key = postState.prefix + "-" + new String(data);
+        postState.key = new String(data);
         op.setBody(postState);
     }
 }

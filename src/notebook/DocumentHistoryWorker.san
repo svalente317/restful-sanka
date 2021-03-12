@@ -15,7 +15,6 @@ class DocumentHistoryWorker extends CollectionWorker {
     const WORKER_PATH = "/notebook/documentHistory";
 
     DocumentHistoryWorker() {
-        setPrimaryKeyField("id");
-        setPrimaryKeyGenerationPrefix("dh");
+        setGeneratedKeyField("id");
     }
 }

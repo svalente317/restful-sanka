@@ -25,8 +25,7 @@ class DocumentsWorker extends CollectionWorker {
     private String rootDirectory;
 
     void onStart() {
-        setPrimaryKeyField("id");
-        setPrimaryKeyGenerationPrefix("d");
+        setGeneratedKeyField("id");
         this.rootDirectory = getConfig(DOCUMENT_ROOT_PREF);
         if (this.rootDirectory != null) {
             new File(this.rootDirectory).mkdirs();
