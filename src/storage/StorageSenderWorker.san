@@ -88,12 +88,11 @@ class StorageSenderWorker extends RestWorker {
      */
     void run() {
         while (true) {
-            var storageKey = this.channel.pop();
+            var storageKey = (String) this.channel.pop();
             if (storageKey == null) {
                 break;
             }
-            var body = null;
-            body = this.cache.remove(storageKey);
+            var body = this.cache.remove(storageKey);
             if (body == null) {
                 body = getResourceFromStorage(storageKey);
             }
