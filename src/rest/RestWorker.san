@@ -2,6 +2,7 @@
 package sanka.rest;
 import sanka.http.Http;
 import sanka.http.Query;
+import sanka.json.JsonElement;
 import sanka.json.SerializableObject;
 
 /**
@@ -40,6 +41,10 @@ abstract class RestWorker {
 
     String getConfig(String key) {
         return this.processor.getConfig(key);
+    }
+
+    JsonElement getConfigElement(String key) {
+        return this.processor.getConfigElement(key);
     }
 
     void onStart() {

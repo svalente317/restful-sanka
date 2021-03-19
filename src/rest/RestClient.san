@@ -1,0 +1,39 @@
+// -*- mode: Java; -*-
+package sanka.rest;
+import sanka.http.Http;
+import sanka.http.HttpClient;
+
+class RestClient {
+    /**
+     * Open a connection, send the request, and update the operation with the
+     * response.
+     */
+    static void send(RestOperation op) {
+        if (op.method == null || op.url == null) {
+            op.status = Http.BAD_REQUEST;
+            return;
+        }
+        // Ignore op.path and op.key. The url must include the path.
+        // TODO. Do not ignore op.query
+        // TODO. Use op.headers and op.cookies?
+
+        var client = new HttpClient();
+        if (!client.send(op.url, op.method, op.getBody())) {
+            op.status = Http.BAD_REQUEST;
+            return;
+        }
+        op.status = client.status;
+        op.headers = client.headers;
+        var value = op.headers[Http.CONTENT_LENGTH];
+        if (value != null) {
+            var contentLength = System.parseLong(value);
+            if (contentLength > 0) {
+                var body = new byte[contentLength];
+                var length = client.getReader().read(body);
+                body.setLength(length);
+                op.setRawBody(body);
+            }
+        }
+        client.close();
+    }
+}

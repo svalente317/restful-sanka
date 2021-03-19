@@ -6,7 +6,7 @@ import sanka.json.SerializableObject;
 import sanka.http.Cookie;
 import sanka.http.Http;
 import sanka.http.Query;
-import sanka.lang.Object;
+import sanka.http.URL;
 
 /**
  * RestOperation represents an operation while it is being processed by a
@@ -38,6 +38,7 @@ import sanka.lang.Object;
 class RestOperation {
     String userId;
     String method;
+    URL url;
     String path;
     String key;
     Query query;

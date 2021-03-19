@@ -7,6 +7,7 @@ import sanka.http.HttpResponse;
 import sanka.http.Query;
 import sanka.http.URL;
 import sanka.http.URLEncoder;
+import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 
 interface HttpAuthenticator {
@@ -34,6 +35,10 @@ class RestProcessor {
 
     String getConfig(String key) {
         return this.configuration.getString(key);
+    }
+
+    JsonElement getConfigElement(String key) {
+        return this.configuration.get(key);
     }
 
     void register(String path, RestWorker worker) {
