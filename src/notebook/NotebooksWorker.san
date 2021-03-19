@@ -59,7 +59,7 @@ class NotebooksWorker extends CollectionWorker {
             return "bad post body";
         }
         var current = new NotebookState();
-        current.fromJson(oldRow);
+        current.fromJsonObject(oldRow);
         state.userId = op.userId;
         if (state.name == null) {
             state.name = current.name;

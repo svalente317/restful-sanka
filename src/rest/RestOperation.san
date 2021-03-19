@@ -2,7 +2,7 @@
 package sanka.rest;
 import sanka.json.JsonElement;
 import sanka.json.JsonObject;
-import sanka.json.Serializable;
+import sanka.json.SerializableObject;
 import sanka.http.Cookie;
 import sanka.http.Http;
 import sanka.http.Query;
@@ -57,8 +57,8 @@ class RestOperation {
         this.jsonBody = null;
     }
 
-    void setBody(Serializable serialBody) {
-        setJsonBody(serialBody == null ? null : serialBody.toJson());
+    void setBody(SerializableObject serialBody) {
+        setJsonBody(serialBody == null ? null : serialBody.toJsonObject());
     }
 
     void setErrorBody(String error) {
@@ -82,11 +82,11 @@ class RestOperation {
         return this.body;
     }
 
-    boolean parseBody(Serializable object) {
+    boolean parseBody(SerializableObject object) {
         if (getJsonBody() == null) {
             return false;
         }
-        object.fromJson(this.jsonBody);
+        object.fromJsonObject(this.jsonBody);
         return true;
     }
 

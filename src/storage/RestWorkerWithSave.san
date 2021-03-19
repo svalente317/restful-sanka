@@ -1,7 +1,7 @@
 // -*- mode: Java; -*-
 package sanka.rest.storage;
 import sanka.json.JsonObject;
-import sanka.json.Serializable;
+import sanka.json.SerializableObject;
 import sanka.http.Http;
 import sanka.http.Query;
 import sanka.rest.RestWorker;
@@ -13,7 +13,7 @@ abstract class RestWorkerWithSave extends RestWorker {
         return new String[]{ StorageWorker.WORKER_PATH };
     }
 
-    boolean load(Serializable object) {
+    boolean load(SerializableObject object) {
         var storageOp = new RestOperation();
         storageOp.method = Http.GET;
         storageOp.path = StorageWorker.WORKER_PATH;
@@ -26,8 +26,8 @@ abstract class RestWorkerWithSave extends RestWorker {
         return storageOp.success();
     }
 
-    boolean save(Serializable object) {
-        var jsonObject = object.toJson();
+    boolean save(SerializableObject object) {
+        var jsonObject = object.toJsonObject();
         jsonObject.setString(StorageWorker.STORAGE_KEY, getWorkerPath());
         var storageOp = new RestOperation();
         storageOp.method = Http.POST;

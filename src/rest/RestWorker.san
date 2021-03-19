@@ -2,7 +2,7 @@
 package sanka.rest;
 import sanka.http.Http;
 import sanka.http.Query;
-import sanka.json.Serializable;
+import sanka.json.SerializableObject;
 
 /**
  * RestWorker provides the basic worker functionality:
@@ -61,7 +61,7 @@ abstract class RestWorker {
         op.setErrorBody("method not supported");
     }
 
-    RestOperation send(String method, String path, Serializable body) {
+    RestOperation send(String method, String path, SerializableObject body) {
         var op = new RestOperation();
         op.method = method;
         op.path = path;

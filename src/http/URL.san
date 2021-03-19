@@ -100,18 +100,11 @@ class URL {
     /**
      * To include URLs in Serializable classes.
      */
-    JsonObject toJson() {
-        return null;
-    }
-
-    void fromJson(JsonObject obj) {
-    }
-
-    JsonElement toJsonElement() {
+    JsonElement toJson() {
         return new JsonElement().makeString(this.url);
     }
 
-    void fromJsonElement(JsonElement element) {
+    void fromJson(JsonElement element) {
         setUrl(element.getAsString());
     }
 }

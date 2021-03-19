@@ -50,7 +50,7 @@ class DocumentsWorker extends CollectionWorker {
         state.lastUpdate = System.currentTimeMillis();
         if (oldRow != null) {
             var current = new DocumentState();
-            current.fromJson(oldRow);
+            current.fromJsonObject(oldRow);
             if (current.userId == op.userId && current.filename != null &&
                 current.lastUpdate + SESSION_TIME >= state.lastUpdate) {
                 // The user is saving the document in the same "session" as
