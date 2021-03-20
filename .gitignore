@@ -1,4 +1,5 @@
 bin
 TestJsonDatabase
 TestLevelDB
+TestPaxosVoterWorker
 TestStorage

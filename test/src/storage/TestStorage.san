@@ -5,6 +5,7 @@ import sanka.http.HttpClient;
 import sanka.http.Query;
 import sanka.http.Server;
 import sanka.http.URL;
+import sanka.json.JsonObject;
 import sanka.lang.Thread;
 import sanka.rest.BaseRestTest;
 import sanka.rest.RestOperation;
@@ -30,9 +31,9 @@ class TestStorage extends BaseRestTest {
         var directory2 = "/tmp/storage-" + port2 + "-" + Random.randomUInt();
 
         // Start a server on port 8888 configured with a peer on port 9999.
-        var configuration = new String[class String];
-        configuration[StorageWorker.STORAGE_ROOT_PREF] = directory1;
-        configuration[StorageWorker.STORAGE_PEER_PREF] = "http://localhost:" + port2;
+        var configuration = new JsonObject();
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory1);
+        configuration.setString(StorageWorker.STORAGE_PEER_PREF, "http://localhost:" + port2);
         var processor1 = new RestProcessor(configuration);
         registerStorageWorkers(processor1);
         processor1.start();
@@ -40,9 +41,9 @@ class TestStorage extends BaseRestTest {
         new Thread(server1);
 
         // Start a server on port 9999 configured with a peer on port 8888.
-        configuration = new String[class String];
-        configuration[StorageWorker.STORAGE_ROOT_PREF] = directory2;
-        configuration[StorageWorker.STORAGE_PEER_PREF] = "http://localhost:" + port1;
+        configuration = new JsonObject();
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory2);
+        configuration.setString(StorageWorker.STORAGE_PEER_PREF, "http://localhost:" + port1);
         var processor2 = new RestProcessor(configuration);
         registerStorageWorkers(processor2);
         processor2.start();

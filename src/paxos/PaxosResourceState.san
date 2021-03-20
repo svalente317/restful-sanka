@@ -1,0 +1,18 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.json.JsonObject;
+
+serializable class PaxosResourceState {
+    String storageKey;
+    int nextGeneration;
+    String nextNonce;
+    String nonce;
+    JsonObject resource;
+
+    // "generation" refers to the entire ResourceState object.
+    // It is updated whenever a PREPARE or WRITE request causes an update to the
+    // ResourceState. It avoids race conditions with other updates to the state.
+    // It does not refer to the visible resource's current or prepared generation.
+
+    int generation;
+}

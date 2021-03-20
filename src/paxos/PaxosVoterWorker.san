@@ -1,0 +1,203 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.http.URL;
+import sanka.io.File;
+import sanka.io.FileReader;
+import sanka.io.FileWriter;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.json.Serializable;
+import sanka.lang.Channel;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+import sanka.rest.storage.StorageWorker;
+
+serializable class PaxosPrepareRequest {
+    String storageKey;
+    int generation;
+    String nonce;
+}
+
+serializable class PaxosWriteRequest {
+    String nonce;
+    JsonObject resource;
+}
+
+class PaxosVoterWorker extends RestWorker {
+    const WORKER_PATH = "/paxos/voter";
+
+    const STORAGE_KEY = "storageKey"; // StorageWorker.STORAGE_KEY;
+    const GENERATION = "generation"; // StorageWorker.GENERATION;
+
+    const NOP = 0;
+    const WRITE_OK = 1;
+    const WRITE_FAIL = -1;
+    
+    /**
+     * A post request either prepares the resource (phase 1)
+     * or writes the resource (phase 2).
+     */
+    void onPost(RestOperation op) {
+        var object = op.getJsonBody();
+        if (object.get("resource") == null) {
+            onPrepareRequest(op);
+        } else {
+            onWriteRequest(op);
+        }
+    }
+
+    /**
+     * Process a phase 1 request: Prepare resource for writing.
+     */
+    private void onPrepareRequest(RestOperation op) {
+        var request = new PaxosPrepareRequest();
+        if (!op.parseBody(request)) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        if (request.storageKey == null) {
+            op.setErrorBody("missing field: storageKey");
+            return;
+        }
+        if (request.generation < 1) {
+            op.setErrorBody("missing or invalid field: generation");
+            return;
+        }
+        if (request.nonce == null) {
+            op.setErrorBody("missing field: nonce");
+            return;
+        }
+        var resourceState = readResourceState(request.storageKey);
+        var status = prepareResourceState(request, resourceState);
+        if (status == WRITE_FAIL) {
+            // Possible race condition? We accepted another PREPARE or WRITE?
+            // Try again, just once, immediately.
+            System.println("unexpected write failure!");
+            resourceState = readResourceState(request.storageKey);
+            if (resourceState != null) {
+                prepareResourceState(request, resourceState);
+            }
+        }
+        request.generation = 0;
+        request.nonce = "";
+        if (resourceState != null && resourceState.resource != null) {
+            request.generation = resourceState.resource.getInt(GENERATION);
+            request.nonce = resourceState.nonce;
+        }
+        op.setBody(request);
+    }
+
+    /**
+     * If the new promise is better than the current promise, then save the new one.
+     */
+    private int prepareResourceState(PaxosPrepareRequest request,
+                                     PaxosResourceState resourceState) {
+        if (resourceState == null) {
+            resourceState = new PaxosResourceState();
+        } else {
+            if (request.generation < resourceState.nextGeneration) {
+                return NOP;
+            }
+            if ((request.generation == resourceState.nextGeneration) &&
+                (request.nonce <= resourceState.nextNonce)) {
+                return NOP;
+            }
+        }
+        resourceState.storageKey = request.storageKey;
+        resourceState.nextGeneration = request.generation;
+        resourceState.nextNonce = request.nonce;
+        resourceState.generation++;
+        var storageOp = writeResourceState(resourceState);
+        return storageOp.success() ? WRITE_OK : WRITE_FAIL;
+    }
+
+    /**
+     * Process a phase 2 request: If allowed, then write the resource.
+     */
+    private void onWriteRequest(RestOperation op) {
+        var request = new PaxosWriteRequest();
+        if (!op.parseBody(request)) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        if (request.nonce == null) {
+            op.setErrorBody("missing field: nonce");
+            return;
+        }
+        var storageKey = request.resource.getString(STORAGE_KEY);
+        if (storageKey == null) {
+            op.setErrorBody("missing field: " + STORAGE_KEY);
+            return;
+        }
+        var generation = request.resource.getInt(GENERATION);
+        if (generation < 0) {
+            op.setErrorBody("missing or invalid invalid field: " + GENERATION);
+            return;
+        }
+        var resourceState = readResourceState(storageKey);
+        if (resourceState == null) {
+            op.setErrorBody("rejected storageKey");
+            return;
+        }
+        if (generation != resourceState.nextGeneration) {
+            op.setErrorBody("rejected generation");
+            return;
+        }
+        if (request.nonce != resourceState.nextNonce) {
+            op.setErrorBody("rejected nonce");
+            return;
+        }
+        resourceState.nonce = request.nonce;
+        resourceState.resource = request.resource;
+        resourceState.generation++;
+        var storageOp = writeResourceState(resourceState);
+        op.setFrom(storageOp);
+    }
+
+    /**
+     * readResourceState() and writeResourceState() are the pieces that are shared
+     * by phase1 and phase2. This is how they access resource states in storage.
+     */
+    private PaxosResourceState readResourceState(String storageKey) {
+        var storageOp = new RestOperation();
+        storageOp.method = Http.GET;
+        storageOp.path = StorageWorker.WORKER_PATH;
+        storageOp.query = new Query();
+        storageOp.query.set(StorageWorker.STORAGE_KEY, storageKey);
+        sendOperation(storageOp);
+        if (!storageOp.success()) {
+            return null;
+        }
+        var resourceState = new PaxosResourceState();
+        storageOp.parseBody(resourceState);
+        return resourceState;
+    }
+
+    private RestOperation writeResourceState(PaxosResourceState resourceState) {
+        return send(Http.POST, StorageWorker.WORKER_PATH, resourceState);
+    }
+
+    /**
+     * Get the resource from the last accepted write request.
+     * Do not expose the metadata -- the nonce or the promise.
+     */
+    void onGet(RestOperation op) {
+        var storageKey = null;
+        if (op.query != null) {
+            storageKey = op.query.getMap()[STORAGE_KEY];
+        }
+        if (storageKey == null) {
+            op.setErrorBody("missing query: " + STORAGE_KEY);
+            return;
+        }
+        var resourceState = readResourceState(storageKey);
+        if (resourceState == null || resourceState.resource == null) {
+            op.setErrorBody("not found: " + storageKey);
+            op.status = Http.NOT_FOUND;
+            return;
+        }
+        op.setJsonBody(resourceState.resource);
+    }
+}

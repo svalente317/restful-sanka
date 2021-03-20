@@ -1,0 +1,162 @@
+// -*- mode: Java; -*-
+package sanka.rest.storage;
+import sanka.http.Http;
+import sanka.http.HttpClient;
+import sanka.http.Query;
+import sanka.http.Server;
+import sanka.http.URL;
+import sanka.json.JsonObject;
+import sanka.lang.Thread;
+import sanka.rest.BaseRestTest;
+import sanka.rest.RestOperation;
+import sanka.rest.RestProcessor;
+import sanka.util.Random;
+
+serializable class ResourceState {
+    String storageKey;
+    int generation;
+    String value;
+}
+
+class TestPaxosVoterWorker extends BaseRestTest {
+
+    private RestProcessor processor;
+    private String storageKey;
+    private int generation;
+
+    void testPaxosVoterWorker() {
+        var directory = "/tmp/storage-" + Random.randomUInt();
+        var configuration = new JsonObject();
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory);
+        this.processor = new RestProcessor(configuration);
+        registerStorageWorkers(this.processor);
+        this.processor.register(PaxosVoterWorker.WORKER_PATH, new PaxosVoterWorker());
+        this.processor.start();
+
+        var loNonce = "a";
+        var hiNonce = "b";
+        var status;
+        var value;
+        var readValue;
+
+        // Simulate two clients trying to post a new key at the same time.
+        // 1. sequence P-lo P-hi W-lo W-hi
+        this.storageKey = "/sequence/1";
+        this.generation = 1;
+        sendPrepareRequest(loNonce);
+        sendPrepareRequest(hiNonce);
+
+        status = sendWriteRequest(loNonce, Random.randomUuid());
+        assert(status == false, "write lo");
+
+        sendReadRequest(Http.NOT_FOUND);
+
+        value = Random.randomUuid();
+        status = sendWriteRequest(hiNonce, value);
+        assert(status, "write hi");
+
+        readValue = sendReadRequest(Http.OK);
+        assertString(value, readValue, "read after write");
+
+        // 2. sequence P-hi P-lo W-lo W-hi
+        this.storageKey = "/sequence/2";
+        this.generation = 2;
+        sendPrepareRequest(hiNonce);
+        sendPrepareRequest(loNonce);
+
+        status = sendWriteRequest(loNonce, Random.randomUuid());
+        assert(status == false, "write lo");
+
+        value = Random.randomUuid();
+        status = sendWriteRequest(hiNonce, value);
+        assert(status, "write hi");
+
+        readValue = sendReadRequest(Http.OK);
+        assertString(value, readValue, "read after write");
+
+        // 3. sequence P-lo W-lo P-hi W-hi
+        this.storageKey = "/sequence/3";
+        this.generation = 1;
+        sendPrepareRequest(loNonce);
+
+        value = Random.randomUuid();
+        status = sendWriteRequest(loNonce, value);
+        assert(status, "write lo");
+
+        readValue = sendReadRequest(Http.OK);
+        assertString(value, readValue, "read lo");
+        
+        sendPrepareRequest(hiNonce);
+
+        value = Random.randomUuid();
+        status = sendWriteRequest(hiNonce, value);
+        assert(status, "write hi");
+
+        readValue = sendReadRequest(Http.OK);
+        assertString(value, readValue, "read hi");
+
+        // 4. sequence W-lo
+        this.storageKey = "/sequence/4";
+        this.generation = 1;
+        status = sendWriteRequest(loNonce, value);
+        assert(status == false, "write before prepare");
+
+        // 5. sequence P-hi W-hi then update with P-lo W-lo
+        this.storageKey = "/sequence/5";
+        this.generation = 1;
+        sendPrepareRequest(hiNonce);
+
+        status = sendWriteRequest(hiNonce, Random.randomUuid());
+        assert(status, "write hi");
+
+        this.generation = 2;
+        sendPrepareRequest(loNonce);
+
+        value = Random.randomUuid();
+        status = sendWriteRequest(loNonce, value);
+        assert(status, "write lo");
+
+        readValue = sendReadRequest(Http.OK);
+        assertString(value, readValue, "read after write");
+    }
+
+    private void sendPrepareRequest(String nonce) {
+        var request = new PaxosPrepareRequest();
+        request.storageKey = this.storageKey;
+        request.generation = this.generation;
+        request.nonce = nonce;
+        var op = send(this.processor, Http.POST, PaxosVoterWorker.WORKER_PATH, request);
+        assert(op.success(), "prepare request failed");
+    }
+
+    private boolean sendWriteRequest(String nonce, String value) {
+        var state = new ResourceState();
+        state.storageKey = this.storageKey;
+        state.generation = this.generation;
+        state.value = value;
+        var request = new PaxosWriteRequest();
+        request.nonce = nonce;
+        request.resource = state.toJsonObject();
+        var op = send(this.processor, Http.POST, PaxosVoterWorker.WORKER_PATH, request);
+        System.println("write status=" + op.status + " body=" + op.getStringBody());
+        return op.success();
+    }
+
+    private String sendReadRequest(int expectedStatus) {
+        var query = new Query();
+        query.set("storageKey", this.storageKey);
+        var op = sendQuery(this.processor, PaxosVoterWorker.WORKER_PATH, query);
+        System.println("read status=" + op.status + " body=" + op.getStringBody());
+        assertEquals(expectedStatus, op.status, "bad read status");
+        var state = new ResourceState();
+        op.parseBody(state);
+        return state.value;
+    }
+        
+    static int main(String[] argv) {
+        Random.seedRandom();
+        var test = new TestPaxosVoterWorker();
+        test.testPaxosVoterWorker();
+        return test.exit();
+    }
+}
