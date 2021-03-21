@@ -17,8 +17,8 @@ class PaxosStorageWorker extends RestWorker {
     const WORKER_PATH = "/paxos/storage";
     const STORAGE_PEERS_PREF = "storagePeers";
 
-    const STORAGE_KEY = "storageKey"; // StorageWorker.STORAGE_KEY;
-    const GENERATION = "generation"; // StorageWorker.GENERATION;
+    const STORAGE_KEY = "storageKey";
+    const GENERATION = "generation";
 
     private URL[] peerURLs;
     private RestRequestSender requestSender;
@@ -32,13 +32,18 @@ class PaxosStorageWorker extends RestWorker {
                 for (var elem : array) {
                     var text = elem.getAsString();
                     if (text != null) {
-                        text = Util.join(text, PaxosVoterWorker.WORKER_PATH);
+                        text = join(text, PaxosVoterWorker.WORKER_PATH);
                         this.peerURLs.add(new URL(text));
                     }
                 }
                 this.requestSender = new RestRequestSender();
             }
         }
+    }
+
+    private static String join(String prefix, String suffix) {
+        return (prefix.endsWith("/") && suffix.startsWith("/")) ?
+            (prefix + suffix.substring(1)) : (prefix + suffix);
     }
 
     /**
@@ -82,7 +87,7 @@ class PaxosStorageWorker extends RestWorker {
         var localOp = send(Http.POST, PaxosVoterWorker.WORKER_PATH, request);
         responseChannel.push(localOp);
 
-        var nonceMap = new NonceState[class String];
+        var nonceMap = new int[class String];
         var majority = 1 + (total >> 1);
         var responseCount = 0;
         var failureCount = 0;
@@ -103,23 +108,18 @@ class PaxosStorageWorker extends RestWorker {
                     return;
                 }
             } else {
-                log("prepare response with generation " + responseBody.generation);
-                var item = nonceMap[responseBody.nonce];
-                if (item == null) {
-                    item = new NonceState();
-                    item.generation = responseBody.generation;
-                    nonceMap[responseBody.nonce] = item;
+                var responseGeneration = responseBody.generation;
+                log("prepare response with generation " + responseGeneration);
+                var count = nonceMap[responseBody.nonce] + 1;
+                nonceMap[responseBody.nonce] = count;
+                if (count >= majority) {
+                    currentGeneration = responseGeneration;
+                    log(storageKey + " current generation is " + currentGeneration);
                 }
-                item.count++;
-                if (item.count >= majority) {
-                    log(storageKey + " current generation is " + item.generation);
-                    currentGeneration = item.generation;
-                }
-                else if (item.generation >= generation) {
-                    if (item.count + failureCount >= majority) {
-                        log(storageKey + " current generation may be " + item.generation);
-                        currentGeneration = item.generation;
-                    }
+                else if ((responseGeneration >= generation) &&
+                         (count + failureCount >= majority)) {
+                    currentGeneration = responseGeneration;
+                    log(storageKey + " current generation may be " + currentGeneration);
                 }
             }
         }
@@ -196,12 +196,14 @@ class PaxosStorageWorker extends RestWorker {
             return;
         }
 
+        var query = new Query();
+        query.set(STORAGE_KEY, storageKey);
         var total = 1 + this.peerURLs.length;
         var responseChannel = new Channel(total);
         for (var url : this.peerURLs) {
-            // TODO This is the wrong way to clone a URL and set a query.
             var remoteOp = new RestOperation();
-            remoteOp.url = new URL(url.url + "?storageKey=" + storageKey);
+            remoteOp.url = new URL(url.scheme, url.hostname, url.port, url.path,
+                                   query.encode());
             remoteOp.method = Http.GET;
             this.requestSender.send(remoteOp, responseChannel);
         }
@@ -209,12 +211,11 @@ class PaxosStorageWorker extends RestWorker {
         var localOp = new RestOperation();
         localOp.method = Http.GET;
         localOp.path = PaxosVoterWorker.WORKER_PATH;
-        localOp.query = new Query();
-        localOp.query.set(STORAGE_KEY, storageKey);
+        localOp.query = query;
         sendOperation(localOp);
         responseChannel.push(localOp);
 
-        var nonceMap = new NonceState[class String];
+        var nonceMap = new int[class String];
         var majority = 1 + (total >> 1);
         var responseCount = 0;
         var rejected = 0;
@@ -230,14 +231,9 @@ class PaxosStorageWorker extends RestWorker {
             if ((response.success() && response.parseBody(responseBody)) ||
                 (response.status == Http.NOT_FOUND)) {
                 var nonce = response.success() ? responseBody.nonce : "";
-                var item = nonceMap[nonce];
-                if (item == null) {
-                    item = new NonceState();
-                    item.generation = responseBody.generation;
-                    nonceMap[nonce] = item;
-                }
-                item.count++;
-                if (item.count >= majority) {
+                var count = nonceMap[nonce] + 1;
+                nonceMap[nonce] = count;
+                if (count >= majority) {
                     selectedOp = response;
                 }
             } else {
@@ -250,7 +246,7 @@ class PaxosStorageWorker extends RestWorker {
         if (selectedOp == null) {
             // We received at least one old value and at least one new value.
             // Assume that the old value is being replaced by the new value.
-            // TODO Read() should sleep briefly and then try again.
+            // TODO Sleep briefly and then try again.
             op.setErrorBody("no majority found");
             return;
         }

@@ -28,8 +28,8 @@ serializable class PaxosWriteRequest {
 class PaxosVoterWorker extends RestWorker {
     const WORKER_PATH = "/paxos/voter";
 
-    const STORAGE_KEY = "storageKey"; // StorageWorker.STORAGE_KEY;
-    const GENERATION = "generation"; // StorageWorker.GENERATION;
+    const STORAGE_KEY = "storageKey";
+    const GENERATION = "generation";
 
     const NOP = 0;
     const WRITE_OK = 1;

@@ -18,6 +18,15 @@ class URL {
         setUrl(value);
     }
 
+    URL(String scheme, String hostname, int port, String path, String query) {
+        this.scheme = scheme;
+        this.hostname = hostname;
+        this.port = port;
+        this.path = path;
+        this.query = query;
+        this.url = scheme + "://" + hostname + (port>0?":"+port:"") + getRequestUri();
+    }
+
     void setUrl(String value) {
         this.url = value;
         var idx = value.indexOf(':');
