@@ -1,5 +1,5 @@
 // -*- mode: Java; -*-
-package sanka.rest.storage;
+package sanka.rest.paxos;
 import sanka.json.JsonObject;
 
 serializable class PaxosResourceState {

@@ -1,0 +1,15 @@
+// -*- mode: Java; -*-
+package sanka.rest.paxos;
+
+class NonceState {
+    int count;
+    int generation;
+}
+
+class Util {
+    static String join(String prefix, String suffix) {
+        return (prefix.endsWith("/") && suffix.startsWith("/")) ?
+            (prefix + suffix.substring(1)) : (prefix + suffix);
+    }
+}
+    

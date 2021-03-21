@@ -1,0 +1,28 @@
+// -*- mode: Java; -*-
+package sanka.rest.paxos;
+import sanka.http.Http;
+import sanka.http.HttpClient;
+import sanka.http.Query;
+import sanka.http.Server;
+import sanka.http.URL;
+import sanka.json.JsonObject;
+import sanka.lang.Thread;
+import sanka.rest.BaseRestTest;
+import sanka.rest.RestOperation;
+import sanka.rest.RestProcessor;
+import sanka.rest.storage.StorageWorker;
+import sanka.util.Random;
+
+class TestPaxosStorageWorker extends BaseRestTest {
+
+    static int main(String[] argv) {
+        Random.seedRandom();
+        //var test = new TestPaxosVoterWorker();
+        //test.testPaxosVoterWorker();
+        //return test.exit();
+        for (var i = 0; i < 10; i++) {
+            System.println(NonceGenerator.generateNonce());
+            System.sleep(250);
+        }
+    }
+}

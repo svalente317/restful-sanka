@@ -1,0 +1,18 @@
+// -*- mode: Java; -*-
+package sanka.rest.paxos;
+import sanka.lang.System;
+import sanka.util.Integer;
+import sanka.util.Random;
+
+class NonceGenerator {
+    static String generateNonce() {
+        var now32 = new int(System.currentTimeMillis() / 1000);
+	var rand32 = Random.randomUInt();
+	return eightDigits(now32) + ":" + eightDigits(rand32);
+    }
+
+    private static String eightDigits(int number) {
+        var text = new Integer(number).toString(16);
+        return "0000000".substring(0, 8-text.length()) + text;
+    }
+}

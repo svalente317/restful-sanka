@@ -1,5 +1,5 @@
 // -*- mode: Java; -*-
-package sanka.rest.storage;
+package sanka.rest.paxos;
 import sanka.http.Http;
 import sanka.http.Query;
 import sanka.http.URL;

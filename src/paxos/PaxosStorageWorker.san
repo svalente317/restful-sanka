@@ -1,0 +1,210 @@
+// -*- mode: Java; -*-
+package sanka.rest.paxos;
+import sanka.http.Http;
+import sanka.http.Query;
+import sanka.http.URL;
+import sanka.io.File;
+import sanka.io.FileReader;
+import sanka.io.FileWriter;
+import sanka.json.JsonElement;
+import sanka.json.JsonObject;
+import sanka.lang.Channel;
+import sanka.rest.RestWorker;
+import sanka.rest.RestOperation;
+import sanka.rest.storage.StorageWorker;
+
+class PaxosStorageWorker extends RestWorker {
+    const WORKER_PATH = "/paxos/storage";
+    const STORAGE_PEERS_PREF = "storagePeers";
+
+    const STORAGE_KEY = "storageKey"; // StorageWorker.STORAGE_KEY;
+    const GENERATION = "generation"; // StorageWorker.GENERATION;
+
+    private URL[] peerURLs;
+    private RestRequestSender requestSender;
+
+    void onStart() {
+        var element = getConfigElement(STORAGE_PEERS_PREF);
+        if (element != null) {
+            var array = element.getAsArray();
+            if (array != null) {
+                this.peerURLs = new URL[0];
+                for (var elem : array) {
+                    var text = elem.getAsString();
+                    if (text != null) {
+                        text = Util.join(text, PaxosVoterWorker.WORKER_PATH);
+                        this.peerURLs.add(new URL(text));
+                    }
+                }
+                this.requestSender = new RestRequestSender();
+            }
+        }
+    }
+
+    /**
+     * Write the given object to storage.
+     */
+    void onPost(RestOperation op) {
+        if (this.requestSender == null) {
+            op.setErrorBody("system not configured");
+            return;
+        }
+        var obj = op.getJsonBody();
+        if (obj == null) {
+            op.setErrorBody("invalid body");
+            return;
+        }
+        var storageKey = obj.getString(STORAGE_KEY);
+        if (storageKey == null) {
+            op.setErrorBody("missing field: " + STORAGE_KEY);
+            return;
+        }
+        var generation = obj.getInt(GENERATION);
+        if (generation <= 0) {
+            op.setErrorBody("missing or invalid field: " + GENERATION);
+            return;
+        }
+        var request = new PaxosPrepareRequest();
+        request.storageKey = storageKey;
+        request.generation = generation;
+        request.nonce = NonceGenerator.generateNonce();
+
+        var total = 1 + this.peerURLs.length;
+        var responseChannel = new Channel(total);
+        for (var url : this.peerURLs) {
+            var remoteOp = new RestOperation();
+            remoteOp.url = url;
+            remoteOp.method = Http.POST;
+            remoteOp.setBody(request);
+            this.requestSender.send(remoteOp, responseChannel);
+        }
+
+        var localOp = send(Http.POST, PaxosVoterWorker.WORKER_PATH, request);
+        responseChannel.push(localOp);
+
+        var nonceMap = new NonceState[class String];
+        var majority = 1 + (total >> 1);
+        var responseCount = 0;
+        var failureCount = 0;
+        var currentGeneration = 0;
+        var responseBody = new PaxosPrepareRequest();
+        while (currentGeneration == 0 && responseCount < total) {
+            var response = (RestOperation) responseChannel.pop();
+            if (response == null) {
+                op.setErrorBody("internal error");
+                return;
+            }
+            responseCount++;
+            if (!response.success() || !response.parseBody(responseBody)) {
+                log("prepare failed with status " + response.status);
+                failureCount++;
+                if (failureCount >= majority) {
+                    op.setErrorBody("prepare request failed");
+                    return;
+                }
+            } else {
+                log("prepare response with generation " + responseBody.generation);
+                var item = nonceMap[responseBody.nonce];
+                if (item == null) {
+                    item = new NonceState();
+                    item.generation = responseBody.generation;
+                    nonceMap[responseBody.nonce] = item;
+                }
+                item.count++;
+                if (item.count >= majority) {
+                    log(storageKey + " current generation is " + item.generation);
+                    currentGeneration = item.generation;
+                }
+                else if (item.generation >= generation) {
+                    if (item.count + failureCount >= majority) {
+                        log(storageKey + " current generation may be " + item.generation);
+                        currentGeneration = item.generation;
+                    }
+                }
+            }
+        }
+        if (currentGeneration >= generation) {
+            op.setErrorBody(storageKey + ": current generation is " + currentGeneration);
+            return;
+        }
+        if (currentGeneration == 0) {
+            // The responses and failures were distributed to indicate that no
+            // higher generation has ever been fully accepted.
+            log(storageKey + " current generation is in transition");
+        }
+        phase2(op, request.nonce);
+    }
+
+    private void phase2(RestOperation op, String nonce) {
+        var request = new PaxosWriteRequest();
+        request.nonce = nonce;
+        request.resource = op.getJsonBody();
+
+        var total = 1 + this.peerURLs.length;
+        var responseChannel = new Channel(total);
+        for (var url : this.peerURLs) {
+            var remoteOp = new RestOperation();
+            remoteOp.url = url;
+            remoteOp.method = Http.POST;
+            remoteOp.setBody(request);
+            this.requestSender.send(remoteOp, responseChannel);
+        }
+
+        var localOp = send(Http.POST, PaxosVoterWorker.WORKER_PATH, request);
+        responseChannel.push(localOp);
+
+        var majority = 1 + (total >> 1);
+        var responseCount = 0;
+        var accepted = 0;
+        var rejected = 0;
+        while (responseCount < total && accepted < majority && rejected < majority) {
+            var response = (RestOperation) responseChannel.pop();
+            if (response == null) {
+                op.setErrorBody("internal error");
+                return;
+            }
+            responseCount++;
+            if (response.success()) {
+                log("write request accepted");
+                accepted++;
+            } else {
+                log("write request failed with status " + response.status);
+                rejected++;
+            }
+        }
+        if (accepted < majority) {
+            op.setErrorBody("write failed");
+            return;
+        }
+        log("write ok");
+    }
+
+    /**
+     * Read the queried object from storage.
+     */
+    void onGet(RestOperation op) {
+        var storageKey = null;
+        if (op.query != null) {
+            storageKey = op.query.getMap()[STORAGE_KEY];
+        }
+        if (storageKey == null) {
+            op.setErrorBody("missing query: " + STORAGE_KEY);
+            return;
+        }
+        /*if (!validateKey(storageKey)) {
+            op.setErrorBody("invalid " + STORAGE_KEY);
+            return;
+        }
+         TODO
+        if (op.query.getMap()[COLLECTION] == TRUE) {
+            onGetCollection(op, storageKey);
+            return;
+        }
+        */
+        // TODO
+    }
+
+    private void log(String s) {
+        System.println(s);
+    }
+}

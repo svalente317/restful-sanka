@@ -1,0 +1,31 @@
+// -*- mode: Java; -*-
+package sanka.rest.paxos;
+import sanka.lang.Channel;
+import sanka.lang.Thread;
+import sanka.rest.RestClient;
+import sanka.rest.RestOperation;
+
+class RestRequestSender {
+    /**
+     * Send the operation asynchronoously. When the operation is complete,
+     * push the completed operation into responseChannel.
+     */
+    static void send(RestOperation op, Channel responseChannel) {
+
+        // This is the most simple implementation:
+        // Start a new thread for each send().
+        // This does not do batching or queueing or thread pool management or
+        // http connection management.
+
+        new Thread(new {
+            op: op;
+            responseChannel: responseChannel;
+
+            void run() {
+                RestClient.send(this.op);
+                this.responseChannel.push(this.op);
+            }
+        });
+    }
+}
+    

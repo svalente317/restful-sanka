@@ -1,4 +1,4 @@
-all:	TestStorage TestPaxosVoterWorker TestLevelDB TestJsonDatabase
+all:	TestStorage TestPaxosVoterWorker TestPaxosStorageWorker TestLevelDB TestJsonDatabase
 
 SRC=        ../src
 STORAGE=    $(SRC)/http/*.san $(SRC)/rest/*.san $(SRC)/storage/*.san \
@@ -12,7 +12,11 @@ TestStorage:	$(STORAGE)
 	./$@
 
 TestPaxosVoterWorker:	$(PAXOS)
-	sanka --top bin $(PAXOS) --exe $@ --main sanka.rest.storage.$@
+	sanka --top bin $(PAXOS) --exe $@ --main sanka.rest.paxos.$@
+	./$@
+
+TestPaxosStorageWorker:	$(PAXOS)
+	sanka --top bin $(PAXOS) --exe $@ --main sanka.rest.paxos.$@
 	./$@
 
 TestLevelDB:	$(LEVELDB)
@@ -24,6 +28,6 @@ TestJsonDatabase: $(SQLITE3)
 	./$@
 
 clean: .DUMMY
-	rm -rf TestStorage TestLevelDB TestJsonDatabase bin
+	rm -rf TestStorage TestPaxosVoterWorker TestPaxosStorageWorker TestLevelDB TestJsonDatabase bin
 
 .DUMMY:
