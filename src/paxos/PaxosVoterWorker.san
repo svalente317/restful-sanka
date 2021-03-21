@@ -69,13 +69,13 @@ class PaxosVoterWorker extends RestWorker {
             op.setErrorBody("missing field: nonce");
             return;
         }
-        var resourceState = readResourceState(request.storageKey);
+        var resourceState = parseResourceState(request.storageKey);
         var status = prepareResourceState(request, resourceState);
         if (status == WRITE_FAIL) {
             // Possible race condition? We accepted another PREPARE or WRITE?
             // Try again, just once, immediately.
             System.println("unexpected write failure!");
-            resourceState = readResourceState(request.storageKey);
+            resourceState = parseResourceState(request.storageKey);
             if (resourceState != null) {
                 prepareResourceState(request, resourceState);
             }
@@ -136,7 +136,7 @@ class PaxosVoterWorker extends RestWorker {
             op.setErrorBody("missing or invalid invalid field: " + GENERATION);
             return;
         }
-        var resourceState = readResourceState(storageKey);
+        var resourceState = parseResourceState(storageKey);
         if (resourceState == null) {
             op.setErrorBody("rejected storageKey");
             return;
@@ -160,13 +160,18 @@ class PaxosVoterWorker extends RestWorker {
      * readResourceState() and writeResourceState() are the pieces that are shared
      * by phase1 and phase2. This is how they access resource states in storage.
      */
-    private PaxosResourceState readResourceState(String storageKey) {
+    private RestOperation readResourceState(String storageKey) {
         var storageOp = new RestOperation();
         storageOp.method = Http.GET;
         storageOp.path = StorageWorker.WORKER_PATH;
         storageOp.query = new Query();
         storageOp.query.set(StorageWorker.STORAGE_KEY, storageKey);
         sendOperation(storageOp);
+        return storageOp;
+    }
+
+    private PaxosResourceState parseResourceState(String storageKey) {
+        var storageOp = readResourceState(storageKey);
         if (!storageOp.success()) {
             return null;
         }
@@ -180,8 +185,7 @@ class PaxosVoterWorker extends RestWorker {
     }
 
     /**
-     * Get the resource from the last accepted write request.
-     * Do not expose the metadata -- the nonce or the promise.
+     * Get the resource metadata and last accepted write request.
      */
     void onGet(RestOperation op) {
         var storageKey = null;
@@ -192,12 +196,7 @@ class PaxosVoterWorker extends RestWorker {
             op.setErrorBody("missing query: " + STORAGE_KEY);
             return;
         }
-        var resourceState = readResourceState(storageKey);
-        if (resourceState == null || resourceState.resource == null) {
-            op.setErrorBody("not found: " + storageKey);
-            op.status = Http.NOT_FOUND;
-            return;
-        }
-        op.setJsonBody(resourceState.resource);
+        var storageOp = readResourceState(storageKey);
+        op.setFrom(storageOp);
     }
 }

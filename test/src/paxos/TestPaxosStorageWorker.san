@@ -5,24 +5,90 @@ import sanka.http.HttpClient;
 import sanka.http.Query;
 import sanka.http.Server;
 import sanka.http.URL;
+import sanka.json.JsonElement;
 import sanka.json.JsonObject;
 import sanka.lang.Thread;
 import sanka.rest.BaseRestTest;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
 import sanka.rest.storage.StorageWorker;
+import sanka.rest.storage.StorageItem;
 import sanka.util.Random;
 
 class TestPaxosStorageWorker extends BaseRestTest {
+    /**
+     * Test replicated updates with concurrency.
+     */
+    void testReplicationWithConcurrency() {
+        var port1 = 9000;
+        var port2 = 9001;
+        var port3 = 9002;
+        var directory1 = "/tmp/storage-" + port1 + "-" + Random.randomUInt();
+        var directory2 = "/tmp/storage-" + port2 + "-" + Random.randomUInt();
+        var directory3 = "/tmp/storage-" + port3 + "-" + Random.randomUInt();
+
+        var configuration = new JsonObject();
+        var peers = makePeerArray(port2, port3);
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory1);
+        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
+        var processor1 = new RestProcessor(configuration);
+        registerPaxosWorkers(processor1);
+        processor1.start();
+        var server1 = new Server(port1, processor1);
+        new Thread(server1);
+
+        configuration = new JsonObject();
+        peers = makePeerArray(port1, port3);
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory2);
+        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
+        var processor2 = new RestProcessor(configuration);
+        registerPaxosWorkers(processor2);
+        processor2.start();
+        var server2 = new Server(port2, processor2);
+        new Thread(server2);
+
+        configuration = new JsonObject();
+        peers = makePeerArray(port1, port2);
+        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory3);
+        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
+        var processor3 = new RestProcessor(configuration);
+        registerPaxosWorkers(processor3);
+        processor3.start();
+        var server3 = new Server(port3, processor3);
+        new Thread(server3);
+
+        var item = new StorageItem();
+        item.storageKey = "/a/b/c";
+        item.generation = 1;
+        item.content = Random.randomUuid();
+        var op = send(processor1, Http.POST, PaxosStorageWorker.WORKER_PATH, item);
+        System.println("op success=" + op.success() + " / " + op.getStringBody());
+
+        var query = new Query();
+        query.set(StorageWorker.STORAGE_KEY, item.storageKey);
+        op = sendQuery(processor2, PaxosStorageWorker.WORKER_PATH, query);
+        System.println("op success=" + op.success() + " / " + op.getStringBody());
+
+        op = sendQuery(processor3, PaxosStorageWorker.WORKER_PATH, query);
+        System.println("op success=" + op.success() + " / " + op.getStringBody());
+    }
+
+    void registerPaxosWorkers(RestProcessor processor) {
+        registerStorageWorkers(processor);
+        processor.register(PaxosVoterWorker.WORKER_PATH, new PaxosVoterWorker());
+        processor.register(PaxosStorageWorker.WORKER_PATH, new PaxosStorageWorker());
+    }
+
+    static JsonElement[] makePeerArray(int port1, int port2) {
+        return new JsonElement[]{
+            new JsonElement().makeString("http://localhost:" + port1),
+            new JsonElement().makeString("http://localhost:" + port2)};
+    }
 
     static int main(String[] argv) {
         Random.seedRandom();
-        //var test = new TestPaxosVoterWorker();
-        //test.testPaxosVoterWorker();
-        //return test.exit();
-        for (var i = 0; i < 10; i++) {
-            System.println(NonceGenerator.generateNonce());
-            System.sleep(250);
-        }
+        var test = new TestPaxosStorageWorker();
+        test.testReplicationWithConcurrency();
+        return test.exit();
     }
 }

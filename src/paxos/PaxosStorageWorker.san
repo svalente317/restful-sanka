@@ -183,6 +183,10 @@ class PaxosStorageWorker extends RestWorker {
      * Read the queried object from storage.
      */
     void onGet(RestOperation op) {
+        if (this.requestSender == null) {
+            op.setErrorBody("system not configured");
+            return;
+        }
         var storageKey = null;
         if (op.query != null) {
             storageKey = op.query.getMap()[STORAGE_KEY];
@@ -191,17 +195,78 @@ class PaxosStorageWorker extends RestWorker {
             op.setErrorBody("missing query: " + STORAGE_KEY);
             return;
         }
-        /*if (!validateKey(storageKey)) {
-            op.setErrorBody("invalid " + STORAGE_KEY);
+
+        var total = 1 + this.peerURLs.length;
+        var responseChannel = new Channel(total);
+        for (var url : this.peerURLs) {
+            // TODO This is the wrong way to clone a URL and set a query.
+            var remoteOp = new RestOperation();
+            remoteOp.url = new URL(url.url + "?storageKey=" + storageKey);
+            remoteOp.method = Http.GET;
+            this.requestSender.send(remoteOp, responseChannel);
+        }
+
+        var localOp = new RestOperation();
+        localOp.method = Http.GET;
+        localOp.path = PaxosVoterWorker.WORKER_PATH;
+        localOp.query = new Query();
+        localOp.query.set(STORAGE_KEY, storageKey);
+        sendOperation(localOp);
+        responseChannel.push(localOp);
+
+        var nonceMap = new NonceState[class String];
+        var majority = 1 + (total >> 1);
+        var responseCount = 0;
+        var rejected = 0;
+        var selectedOp = null;
+        var responseBody = new PaxosResourceState();
+        while (selectedOp == null && responseCount < total) {
+            var response = (RestOperation) responseChannel.pop();
+            if (response == null) {
+                op.setErrorBody("internal error");
+                return;
+            }
+            responseCount++;
+            if ((response.success() && response.parseBody(responseBody)) ||
+                (response.status == Http.NOT_FOUND)) {
+                var nonce = response.success() ? responseBody.nonce : "";
+                var item = nonceMap[nonce];
+                if (item == null) {
+                    item = new NonceState();
+                    item.generation = responseBody.generation;
+                    nonceMap[nonce] = item;
+                }
+                item.count++;
+                if (item.count >= majority) {
+                    selectedOp = response;
+                }
+            } else {
+                rejected++;
+                if (rejected >= majority) {
+                    selectedOp = response;
+                }
+            }
+        }
+        if (selectedOp == null) {
+            // We received at least one old value and at least one new value.
+            // Assume that the old value is being replaced by the new value.
+            // TODO Read() should sleep briefly and then try again.
+            op.setErrorBody("no majority found");
             return;
         }
-         TODO
-        if (op.query.getMap()[COLLECTION] == TRUE) {
-            onGetCollection(op, storageKey);
+        if (!selectedOp.success()) {
+            // Either the majority of peers agreed that this storageKey is undefined
+            // (never been saved), or the majority failed to response.
+            op.setFrom(selectedOp);
             return;
         }
-        */
-        // TODO
+        // Discard the counting metadata, and return the saved resource.
+        selectedOp.parseBody(responseBody);
+        if (responseBody == null || responseBody.resource == null) {
+            op.setErrorBody("internal error parsing resource");
+            return;
+        }
+        op.setJsonBody(responseBody.resource);
     }
 
     private void log(String s) {
