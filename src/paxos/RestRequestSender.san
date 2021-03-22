@@ -6,26 +6,60 @@ import sanka.rest.RestClient;
 import sanka.rest.RestOperation;
 
 class RestRequestSender {
+    private Channel[String] hostChannelMap;
+
+    RestRequestSender() {
+        this.hostChannelMap = new Channel[class String];
+    }
+
     /**
      * Send the operation asynchronoously. When the operation is complete,
      * push the completed operation into responseChannel.
      */
-    static void send(RestOperation op, Channel responseChannel) {
+    void send(RestOperation op, Channel responseChannel) {
+        var key = op.url.hostname;
+        if (op.url.port > 0) {
+            key = key + ":" + op.url.port;
+        }
+        var channel = this.hostChannelMap[key];
+        if (channel == null) {
+            System.println("create sender thread for " + key);
+            channel = new Channel(0);
+            new Thread(new SenderRunnable(channel));
+            this.hostChannelMap[key] = channel;
+        }
+        channel.push(new SendPair(op, responseChannel));
+    }
 
-        // This is the most simple implementation:
-        // Start a new thread for each send().
-        // This does not do batching or queueing or thread pool management or
-        // http connection management.
-
-        new Thread(new {
-            op: op;
-            responseChannel: responseChannel;
-
-            void run() {
-                RestClient.send(this.op);
-                this.responseChannel.push(this.op);
-            }
-        });
+    void close() {
+        for (var key, channel : this.hostChannelMap) {
+            channel.close();
+        }
     }
 }
-    
+
+class SendPair {
+    RestOperation op;
+    Channel responseChannel;
+
+    SendPair(op, responseChannel);
+}
+
+class SenderRunnable {
+    private Channel channel;
+
+    SenderRunnable(channel);
+
+    void run() {
+        System.println("SenderRunnable start");
+        while (true) {
+            var pair = (SendPair) this.channel.pop();
+            if (pair == null) {
+                break;
+            }
+            RestClient.send(pair.op);
+            pair.responseChannel.push(pair.op);
+        }
+        System.println("SenderRunnable end");
+    }
+}

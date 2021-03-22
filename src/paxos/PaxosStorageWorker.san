@@ -265,6 +265,16 @@ class PaxosStorageWorker extends RestWorker {
         op.setJsonBody(responseBody.resource);
     }
 
+    /**
+     * Shut down this worker and free resources.
+     */
+    void onShutdown() {
+        if (this.requestSender != null) {
+            this.requestSender.close();
+            this.requestSender = null;
+        }
+    }
+
     private void log(String s) {
         System.println(s);
     }

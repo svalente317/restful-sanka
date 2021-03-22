@@ -16,73 +16,82 @@ import sanka.rest.storage.StorageItem;
 import sanka.util.Random;
 
 class TestPaxosStorageWorker extends BaseRestTest {
+    const BASE_PORT = 9000;
+
     /**
      * Test replicated updates with concurrency.
      */
     void testReplicationWithConcurrency() {
-        var port1 = 9000;
-        var port2 = 9001;
-        var port3 = 9002;
-        var directory1 = "/tmp/storage-" + port1 + "-" + Random.randomUInt();
-        var directory2 = "/tmp/storage-" + port2 + "-" + Random.randomUInt();
-        var directory3 = "/tmp/storage-" + port3 + "-" + Random.randomUInt();
 
-        var configuration = new JsonObject();
-        var peers = makePeerArray(port2, port3);
-        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory1);
-        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
-        var processor1 = new RestProcessor(configuration);
-        registerPaxosWorkers(processor1);
-        processor1.start();
-        var server1 = new Server(port1, processor1);
-        new Thread(server1);
+        var servers = new Server[3];
+        for (var idx = 0; idx < 3; idx++) {
+            var port = BASE_PORT + idx;
+            var directory = "/tmp/storage-" + port + "-" + Random.randomUInt();
+            var configuration = new JsonObject();
+            var peers = new JsonElement[0];
+            for (var other = 0; other < 3; other++) {
+                if (idx != other) {
+                    var addr = "http://localhost:" + (BASE_PORT+other);
+                    peers.add(new JsonElement().makeString(addr));
+                }
+            }
+            configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory);
+            configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
+            var processor = new RestProcessor(configuration);
+            registerStorageWorkers(processor);
+            processor.register(PaxosVoterWorker.WORKER_PATH, new PaxosVoterWorker());
+            processor.register(PaxosStorageWorker.WORKER_PATH, new PaxosStorageWorker());
+            processor.start();
+            servers[idx] = new Server(port, processor);
+            new Thread(servers[idx]);
+        }
 
-        configuration = new JsonObject();
-        peers = makePeerArray(port1, port3);
-        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory2);
-        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
-        var processor2 = new RestProcessor(configuration);
-        registerPaxosWorkers(processor2);
-        processor2.start();
-        var server2 = new Server(port2, processor2);
-        new Thread(server2);
+        var storageKey = "/a/b/c";
+        var requestSender = new RestRequestSender();
+        var stats = new int[3];
+        for (var generation = 1; generation <= 300; generation++) {
+            var responseChannel = new Channel(3);
+            for (var idx = 0; idx < 3; idx++) {
+                var item = new StorageItem();
+                item.storageKey = storageKey;
+                item.generation = generation;
+                item.content = Random.randomUuid();
+                var op = new RestOperation();
+                op.url = new URL("http", "localhost", BASE_PORT+idx,
+                                 PaxosStorageWorker.WORKER_PATH, null);
+                op.method = Http.POST;
+                op.setBody(item);
+                requestSender.send(op, responseChannel);
+            }
+            var ops = new RestOperation[]{
+                (RestOperation) responseChannel.pop(),
+                (RestOperation) responseChannel.pop(),
+                (RestOperation) responseChannel.pop()};
+            var winner = -1;
+            var loserCount = 0;
+            for (var op : ops) {
+                if (op.success()) {
+                    winner = op.url.port - BASE_PORT;
+                } else {
+                    loserCount++;
+                }
+            }
+            assert(winner >= 0, "must have 1 winner per generation");
+            assertEquals(2, loserCount, "must have 2 losers per generation");
+            stats[winner] = stats[winner] + 1;
 
-        configuration = new JsonObject();
-        peers = makePeerArray(port1, port2);
-        configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory3);
-        configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
-        var processor3 = new RestProcessor(configuration);
-        registerPaxosWorkers(processor3);
-        processor3.start();
-        var server3 = new Server(port3, processor3);
-        new Thread(server3);
-
-        var item = new StorageItem();
-        item.storageKey = "/a/b/c";
-        item.generation = 1;
-        item.content = Random.randomUuid();
-        var op = send(processor1, Http.POST, PaxosStorageWorker.WORKER_PATH, item);
-        System.println("op success=" + op.success() + " / " + op.getStringBody());
-
-        var query = new Query();
-        query.set(StorageWorker.STORAGE_KEY, item.storageKey);
-        op = sendQuery(processor2, PaxosStorageWorker.WORKER_PATH, query);
-        System.println("op success=" + op.success() + " / " + op.getStringBody());
-
-        op = sendQuery(processor3, PaxosStorageWorker.WORKER_PATH, query);
-        System.println("op success=" + op.success() + " / " + op.getStringBody());
-    }
-
-    void registerPaxosWorkers(RestProcessor processor) {
-        registerStorageWorkers(processor);
-        processor.register(PaxosVoterWorker.WORKER_PATH, new PaxosVoterWorker());
-        processor.register(PaxosStorageWorker.WORKER_PATH, new PaxosStorageWorker());
-    }
-
-    static JsonElement[] makePeerArray(int port1, int port2) {
-        return new JsonElement[]{
-            new JsonElement().makeString("http://localhost:" + port1),
-            new JsonElement().makeString("http://localhost:" + port2)};
+            //var query = new Query();
+            //query.set(StorageWorker.STORAGE_KEY, storageKey);
+            //var op = sendQuery(queryProcessor, PaxosStorageWorker.WORKER_PATH, query);
+            // System.println("op success=" + op.success() + " / " + op.getStringBody());
+        }
+        for (var idx = 0; idx < 3; idx++) {
+            System.println("stats[" + idx + "]=" + stats[idx]);
+        }
+        requestSender.close();
+        for (var server : servers) {
+            server.close();
+        }
     }
 
     static int main(String[] argv) {
