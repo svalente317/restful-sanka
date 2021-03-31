@@ -50,7 +50,8 @@ class TestPaxosVoterWorker extends BaseRestTest {
         status = sendWriteRequest(loNonce, Random.randomUuid());
         assert(status == false, "write lo");
 
-        sendReadRequest(Http.NOT_FOUND);
+        readValue = sendReadRequest(Http.OK);
+        assert(readValue == null, "read before write");
 
         value = Random.randomUuid();
         status = sendWriteRequest(hiNonce, value);
@@ -149,9 +150,9 @@ class TestPaxosVoterWorker extends BaseRestTest {
         var op = sendQuery(this.processor, PaxosVoterWorker.WORKER_PATH, query);
         System.println("read status=" + op.status + " body=" + op.getStringBody());
         assertEquals(expectedStatus, op.status, "bad read status");
-        var state = new ResourceState();
+        var state = new PaxosResourceState();
         op.parseBody(state);
-        return state.value;
+        return state.resource == null ? null : state.resource.getString("value");
     }
         
     static int main(String[] argv) {

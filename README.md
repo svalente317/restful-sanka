@@ -232,6 +232,9 @@ packages of services:
   resources to disk. The Collection Worker infrastructure uses this
   service.
 
+* [Paxos](src/paxos). A higher level storage service. It provides
+  replication, high availability, and single-copy consistency.
+
 * [Notebook](src/notebook). This is a small set of workers that can be
   used to manage a collection of "notebooks", where a notebook is an
   ordered series of individual documents. It's a very simple service,
