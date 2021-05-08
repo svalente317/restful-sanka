@@ -21,6 +21,9 @@ interface HttpAuthenticator {
  * to process a RestOperation.
  */
 class RestProcessor {
+    const INSTANCE_NAME_PREF = "instanceName";
+
+    String instanceName;
     private JsonObject configuration;
     private RestWorker[String] workerMap;
     private boolean[String] isStarted;
@@ -31,6 +34,7 @@ class RestProcessor {
         this.workerMap = new RestWorker[class String];
         this.isStarted = new boolean[class String];
         this.authenticators = new HttpAuthenticator[0];
+        this.instanceName = getConfig(INSTANCE_NAME_PREF);
     }
 
     String getConfig(String key) {

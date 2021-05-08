@@ -49,7 +49,7 @@ class StorageLogWorker extends RestWorker {
         this.logWriter = new FileWriter();
         var status = this.logWriter.open(logFile.getPath());
         if (status != 0) {
-            System.println(logFile.toString() + ": " + System.strerror(status));
+            log(logFile.toString() + ": " + System.strerror(status));
             this.logWriter = null;
         }
     }

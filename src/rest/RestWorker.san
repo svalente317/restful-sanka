@@ -47,6 +47,14 @@ abstract class RestWorker {
         return this.processor.getConfigElement(key);
     }
 
+    void log(String message) {
+        message = "[" + this.workerPath + "] " + message;
+        if (this.processor.instanceName != null) {
+            message = "[" + this.processor.instanceName + "] " + message;
+        }
+        System.println(message);
+    }
+
     void onStart() {
     }
 
@@ -76,10 +84,10 @@ abstract class RestWorker {
     }
 
     void sendOperation(RestOperation op) {
-        System.println("send " + op.method + " to " + op.path);
+        // log("send " + op.method + " to " + op.path);
         op.status = Http.OK;
         op.source = getWorkerPath();
         this.processor.processOperation(op);
-        System.println("status=" + op.status);
+        // log("status=" + op.status);
     }
 }

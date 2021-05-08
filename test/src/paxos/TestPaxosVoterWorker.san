@@ -120,6 +120,8 @@ class TestPaxosVoterWorker extends BaseRestTest {
 
         readValue = sendReadRequest(Http.OK);
         assertString(value, readValue, "read after write");
+
+        removeDirectory(directory);
     }
 
     private void sendPrepareRequest(String nonce) {

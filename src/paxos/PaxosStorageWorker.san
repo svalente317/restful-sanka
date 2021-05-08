@@ -19,6 +19,8 @@ class PaxosStorageWorker extends RestWorker {
 
     const STORAGE_KEY = "storageKey";
     const GENERATION = "generation";
+    const COLLECTION = ".collection";
+    const TRUE = "true";
 
     private URL[] peerURLs;
     private RestRequestSender requestSender;
@@ -195,15 +197,14 @@ class PaxosStorageWorker extends RestWorker {
             op.setErrorBody("missing query: " + STORAGE_KEY);
             return;
         }
+        var isCollection = (op.query.getMap()[COLLECTION] == TRUE);
 
-        var query = new Query();
-        query.set(STORAGE_KEY, storageKey);
         var total = 1 + this.peerURLs.length;
         var responseChannel = new Channel(total);
         for (var url : this.peerURLs) {
             var remoteOp = new RestOperation();
             remoteOp.url = new URL(url.scheme, url.hostname, url.port, url.path,
-                                   query.encode());
+                                   op.query.encode());
             remoteOp.method = Http.GET;
             this.requestSender.send(remoteOp, responseChannel);
         }
@@ -211,9 +212,13 @@ class PaxosStorageWorker extends RestWorker {
         var localOp = new RestOperation();
         localOp.method = Http.GET;
         localOp.path = PaxosVoterWorker.WORKER_PATH;
-        localOp.query = query;
+        localOp.query = op.query;
         sendOperation(localOp);
         responseChannel.push(localOp);
+
+        if (isCollection) {
+            return onGetCollection(op, total, responseChannel);
+        }
 
         var nonceMap = new int[class String];
         var majority = 1 + (total >> 1);
@@ -266,6 +271,72 @@ class PaxosStorageWorker extends RestWorker {
     }
 
     /**
+     * Return all resources that match the queried collection and filters
+     * according to the majority of peers.
+     */
+    private void onGetCollection(RestOperation op, int total, Channel responseChannel) {
+        var nonceMap = new int[class String];
+        var majority = 1 + (total >> 1);
+        var remaining = total;
+        var resources = new JsonElement[0];
+        while (true) {
+            var response = (RestOperation) responseChannel.pop();
+            if (response == null) {
+                op.setErrorBody("internal error");
+                return;
+            }
+            remaining--;
+            if (!response.success()) {
+                continue;
+            }
+            var jo = response.getJsonBody();
+            if (jo == null) {
+                continue;
+            }
+            var items = jo.getArray("items");
+            if (items == null) {
+                continue;
+            }
+            for (var element : items) {
+                jo = element.getAsObject();
+                if (jo == null) {
+                    continue;
+                }
+                var nonce = jo.getString("nonce");
+                if (nonce == null) {
+                    continue;
+                }
+                var count = nonceMap[nonce] + 1;
+                nonceMap[nonce] = count;
+                if (count == majority) {
+                    resources.add(jo.get("resource"));
+                }
+            }
+            if (isCollectionFinished(nonceMap, remaining, majority)) {
+                break;
+            }
+        }
+        var wrapper = new JsonObject();
+        wrapper.setArray("items", resources);
+        op.setJsonBody(wrapper);
+    }
+
+    private boolean isCollectionFinished(int[String] nonceMap, int remaining, int majority) {
+        if (remaining == 0) {
+            return true;
+        }
+        if (remaining >= majority) {
+            return false;
+        }
+        for (var nonce, count : nonceMap) {
+            if (count < majority && (count + remaining) >= majority) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Shut down this worker and free resources.
      */
     void onShutdown() {
@@ -273,9 +344,5 @@ class PaxosStorageWorker extends RestWorker {
             this.requestSender.close();
             this.requestSender = null;
         }
-    }
-
-    private void log(String s) {
-        System.println(s);
     }
 }

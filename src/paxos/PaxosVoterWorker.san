@@ -74,10 +74,12 @@ class PaxosVoterWorker extends RestWorker {
         if (status == WRITE_FAIL) {
             // Possible race condition? We accepted another PREPARE or WRITE?
             // Try again, just once, immediately.
-            System.println("unexpected write failure!");
+            var oldGeneration = resourceState.generation;
             resourceState = readResourceState(request.storageKey);
             if (resourceState != null) {
-                prepareResourceState(request, resourceState);
+                status = prepareResourceState(request, resourceState);
+                log("failed to write generation " + oldGeneration + ". try again with " +
+                    resourceState.generation + ". status=" + status);
             }
         }
         request.generation = 0;

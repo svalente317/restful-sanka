@@ -24,9 +24,9 @@ class TestPaxosStorageWorker extends BaseRestTest {
     void testReplicationWithConcurrency() {
 
         var servers = new Server[3];
+        var directories = new String[3];
         for (var idx = 0; idx < 3; idx++) {
             var port = BASE_PORT + idx;
-            var directory = "/tmp/storage-" + port + "-" + Random.randomUInt();
             var configuration = new JsonObject();
             var peers = new JsonElement[0];
             for (var other = 0; other < 3; other++) {
@@ -35,7 +35,9 @@ class TestPaxosStorageWorker extends BaseRestTest {
                     peers.add(new JsonElement().makeString(addr));
                 }
             }
-            configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directory);
+            directories[idx] = "/tmp/storage-" + port + "-" + Random.randomUInt();
+            configuration.setString(RestProcessor.INSTANCE_NAME_PREF, "i" + idx);
+            configuration.setString(StorageWorker.STORAGE_ROOT_PREF, directories[idx]);
             configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
             var processor = new RestProcessor(configuration);
             registerStorageWorkers(processor);
@@ -50,6 +52,7 @@ class TestPaxosStorageWorker extends BaseRestTest {
         var requestSender = new RestRequestSender();
         var stats = new int[3];
         for (var generation = 1; generation <= 300; generation++) {
+            System.println("--- GENERATION " + generation + " ---");
             var responseChannel = new Channel(3);
             for (var idx = 0; idx < 3; idx++) {
                 var item = new StorageItem();
@@ -91,6 +94,9 @@ class TestPaxosStorageWorker extends BaseRestTest {
         requestSender.close();
         for (var server : servers) {
             server.close();
+        }
+        for (var directory : directories) {
+            removeDirectory(directory);
         }
     }
 
