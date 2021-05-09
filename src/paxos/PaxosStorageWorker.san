@@ -13,6 +13,11 @@ import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
 import sanka.rest.storage.StorageWorker;
 
+class GenerationCount {
+    int generation;
+    int count;
+}
+
 class PaxosStorageWorker extends RestWorker {
     const WORKER_PATH = "/paxos/storage";
     const STORAGE_PEERS_PREF = "storagePeers";
@@ -89,7 +94,7 @@ class PaxosStorageWorker extends RestWorker {
         var localOp = send(Http.POST, PaxosVoterWorker.WORKER_PATH, request);
         responseChannel.push(localOp);
 
-        var nonceMap = new int[class String];
+        var nonceMap = new GenerationCount[class String];
         var majority = 1 + (total >> 1);
         var responseCount = 0;
         var failureCount = 0;
@@ -103,25 +108,24 @@ class PaxosStorageWorker extends RestWorker {
             }
             responseCount++;
             if (!response.success() || !response.parseBody(responseBody)) {
-                log("prepare failed with status " + response.status);
+                log("prepare request failed");
                 failureCount++;
                 if (failureCount >= majority) {
-                    op.setErrorBody("prepare request failed");
+                    op.setErrorBody(storageKey + ": failed to prepare for write");
                     return;
                 }
             } else {
-                var responseGeneration = responseBody.generation;
-                log("prepare response with generation " + responseGeneration);
-                var count = nonceMap[responseBody.nonce] + 1;
-                nonceMap[responseBody.nonce] = count;
-                if (count >= majority) {
-                    currentGeneration = responseGeneration;
-                    log(storageKey + " current generation is " + currentGeneration);
+                var gc = nonceMap[responseBody.nonce];
+                if (gc == null) {
+                    gc = new GenerationCount();
+                    gc.generation = responseBody.generation;
+                    nonceMap[responseBody.nonce] = gc;
                 }
-                else if ((responseGeneration >= generation) &&
-                         (count + failureCount >= majority)) {
-                    currentGeneration = responseGeneration;
-                    log(storageKey + " current generation may be " + currentGeneration);
+                log("prepare response with generation " + gc.generation);
+                gc.count = gc.count + 1;
+                if (gc.count >= majority) {
+                    currentGeneration = gc.generation;
+                    log(storageKey + " current generation is " + currentGeneration);
                 }
             }
         }
@@ -130,11 +134,23 @@ class PaxosStorageWorker extends RestWorker {
             return;
         }
         if (currentGeneration == 0) {
-            // The responses and failures were distributed to indicate that no
-            // higher generation has ever been fully accepted.
             log(storageKey + " current generation is in transition");
+            if (possibleCommit(generation, nonceMap, failureCount, majority)) {
+                op.setErrorBody(storageKey + ": current generation may be > " + generation);
+                return;
+            }
         }
         phase2(op, request.nonce);
+    }
+
+    private boolean possibleCommit(int generation, GenerationCount[String] nonceMap,
+                                   int failureCount, int majority) {
+        for (var nonce, gc : nonceMap) {
+            if (failureCount + gc.count >= majority && gc.generation >= generation) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void phase2(RestOperation op, String nonce) {
@@ -170,7 +186,7 @@ class PaxosStorageWorker extends RestWorker {
                 log("write request accepted");
                 accepted++;
             } else {
-                log("write request failed with status " + response.status);
+                log("write request failed");
                 rejected++;
             }
         }
@@ -178,7 +194,6 @@ class PaxosStorageWorker extends RestWorker {
             op.setErrorBody("write failed");
             return;
         }
-        log("write ok");
     }
 
     /**

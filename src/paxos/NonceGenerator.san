@@ -7,8 +7,8 @@ import sanka.util.Random;
 class NonceGenerator {
     static String generateNonce() {
         var now32 = new int(System.currentTimeMillis() / 1000);
-	var rand32 = Random.randomUInt();
-	return eightDigits(now32) + ":" + eightDigits(rand32);
+	return eightDigits(now32) + ":" + eightDigits(Random.randomUInt()) +
+            eightDigits(Random.randomUInt());
     }
 
     private static String eightDigits(int number) {

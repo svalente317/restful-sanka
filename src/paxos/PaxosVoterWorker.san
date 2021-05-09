@@ -70,16 +70,17 @@ class PaxosVoterWorker extends RestWorker {
             return;
         }
         var resourceState = readResourceState(request.storageKey);
-        var status = prepareResourceState(request, resourceState);
-        if (status == WRITE_FAIL) {
+        var resourceStateId = resourceState == null ? 0 : resourceState.generation;
+        while (true) {
+            var status = prepareResourceState(request, resourceState);
+            if (status != WRITE_FAIL) {
+                break;
+            }
             // Possible race condition? We accepted another PREPARE or WRITE?
-            // Try again, just once, immediately.
-            var oldGeneration = resourceState.generation;
             resourceState = readResourceState(request.storageKey);
-            if (resourceState != null) {
-                status = prepareResourceState(request, resourceState);
-                log("failed to write generation " + oldGeneration + ". try again with " +
-                    resourceState.generation + ". status=" + status);
+            if (resourceState == null || resourceStateId == resourceState.generation) {
+                op.setErrorBody("failed phase 1");
+                return;
             }
         }
         request.generation = 0;
@@ -138,23 +139,40 @@ class PaxosVoterWorker extends RestWorker {
             op.setErrorBody("missing or invalid invalid field: " + GENERATION);
             return;
         }
-        var resourceState = readResourceState(storageKey);
-        if (resourceState == null) {
-            op.setErrorBody("rejected storageKey");
-            return;
+        var resourceStateId = -1;
+        var storageOp = null;
+        while (true) {
+            var resourceState = readResourceState(storageKey);
+            if (resourceState == null) {
+                op.setErrorBody("rejected storageKey");
+                return;
+            }
+            if (resourceState.generation == resourceStateId) {
+                break;
+            }
+            if (generation != resourceState.nextGeneration) {
+                op.setErrorBody("rejected generation");
+                return;
+            }
+            if (request.nonce != resourceState.nextNonce) {
+                op.setErrorBody("rejected nonce");
+                return;
+            }
+            resourceStateId = resourceState.generation;
+            resourceState.nonce = request.nonce;
+            resourceState.resource = request.resource;
+            resourceState.generation++;
+            storageOp = writeResourceState(resourceState);
+            if (storageOp.success()) {
+                break;
+            }
+            // ResourceState was updated in between read and write.
+            // The update may be an irrelevant Prepare request.
+            // This Write Request may still succeed.
+            // Throw away all state and loop back to the beginning,
+            // so that this Write Request will be serialized after
+            // whatever just happened.
         }
-        if (generation != resourceState.nextGeneration) {
-            op.setErrorBody("rejected generation");
-            return;
-        }
-        if (request.nonce != resourceState.nextNonce) {
-            op.setErrorBody("rejected nonce");
-            return;
-        }
-        resourceState.nonce = request.nonce;
-        resourceState.resource = request.resource;
-        resourceState.generation++;
-        var storageOp = writeResourceState(resourceState);
         op.setFrom(storageOp);
     }
 

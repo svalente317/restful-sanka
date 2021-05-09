@@ -2,6 +2,8 @@
 package sanka.rest;
 import sanka.http.Http;
 import sanka.http.Query;
+import sanka.io.File;
+import sanka.io.IOUtils;
 import sanka.json.SerializableObject;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
@@ -55,5 +57,9 @@ abstract class BaseRestTest extends BaseTest {
         op.status = Http.OK;
         processor.processOperation(op);
         return op;
+    }
+
+    void removeDirectory(String directory) {
+        IOUtils.removeDirectory(new File(directory));
     }
 }

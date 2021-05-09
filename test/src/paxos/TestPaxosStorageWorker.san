@@ -71,15 +71,17 @@ class TestPaxosStorageWorker extends BaseRestTest {
                 (RestOperation) responseChannel.pop(),
                 (RestOperation) responseChannel.pop()};
             var winner = -1;
+            var winnerCount = 0;
             var loserCount = 0;
             for (var op : ops) {
                 if (op.success()) {
+                    winnerCount++;
                     winner = op.url.port - BASE_PORT;
                 } else {
                     loserCount++;
                 }
             }
-            assert(winner >= 0, "must have 1 winner per generation");
+            assertEquals(1, winnerCount, "must have 1 winner per generation");
             assertEquals(2, loserCount, "must have 2 losers per generation");
             stats[winner] = stats[winner] + 1;
 

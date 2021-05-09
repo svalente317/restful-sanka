@@ -62,7 +62,7 @@ class TestLevelDB extends BaseTest {
         // TODO test getResults
         // TODO test delete
         db.close();
-        removeDirectory(directoryName);
+        // IOUtils.removeDirectory(new File(directoryName));
     }
 
     static void shuffle(int[] arr) {
