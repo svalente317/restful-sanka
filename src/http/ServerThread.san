@@ -2,6 +2,7 @@
 package sanka.http;
 import sanka.io.LineReader;
 import sanka.net.Socket;
+import sanka.util.DateFormat;
 
 /**
  * ServerThread reads and processes HTTP requests for as long as a single
@@ -69,7 +70,7 @@ class ServerThread {
         var reason = StatusCodes.get().getDescription(response.status);
         var text = Http.VERSION + " " + response.status + " " + reason + "\r\n";
         if (response.headers == null || response.headers[Http.DATE] == null) {
-            var date = System.formatTime(Http.RFC822_FORMAT,
+            var date = DateFormat.unparse(Http.RFC822_FORMAT,
                 System.currentTimeMillis(), false);
             text = text + Http.DATE + ": " + date + "\r\n";
         }
