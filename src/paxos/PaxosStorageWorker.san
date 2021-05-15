@@ -11,6 +11,8 @@ import sanka.json.JsonObject;
 import sanka.lang.Channel;
 import sanka.rest.RestWorker;
 import sanka.rest.RestOperation;
+import sanka.rest.storage.PrimaryKeyPostState;
+import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageWorker;
 
 class GenerationCount {
@@ -79,7 +81,7 @@ class PaxosStorageWorker extends RestWorker {
         var request = new PaxosPrepareRequest();
         request.storageKey = storageKey;
         request.generation = generation;
-        request.nonce = NonceGenerator.generateNonce();
+        request.nonce = generateNonce();
 
         var total = 1 + this.peerURLs.length;
         var responseChannel = new Channel(total);
@@ -359,5 +361,15 @@ class PaxosStorageWorker extends RestWorker {
             this.requestSender.close();
             this.requestSender = null;
         }
+    }
+
+    private String generateNonce() {
+        var op = send(Http.GET, PrimaryKeyWorker.WORKER_PATH, null);
+        if (!op.success()) {
+            return null;
+        }
+        var pkstate = new PrimaryKeyPostState();
+        op.parseBody(pkstate);
+        return pkstate.key;
     }
 }

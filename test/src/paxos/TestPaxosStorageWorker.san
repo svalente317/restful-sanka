@@ -11,6 +11,7 @@ import sanka.lang.Thread;
 import sanka.rest.BaseRestTest;
 import sanka.rest.RestOperation;
 import sanka.rest.RestProcessor;
+import sanka.rest.storage.PrimaryKeyWorker;
 import sanka.rest.storage.StorageWorker;
 import sanka.rest.storage.StorageItem;
 import sanka.util.Random;
@@ -41,6 +42,7 @@ class TestPaxosStorageWorker extends BaseRestTest {
             configuration.setArray(PaxosStorageWorker.STORAGE_PEERS_PREF, peers);
             var processor = new RestProcessor(configuration);
             registerStorageWorkers(processor);
+            processor.register(PrimaryKeyWorker.WORKER_PATH, new PrimaryKeyWorker());
             processor.register(PaxosVoterWorker.WORKER_PATH, new PaxosVoterWorker());
             processor.register(PaxosStorageWorker.WORKER_PATH, new PaxosStorageWorker());
             processor.start();

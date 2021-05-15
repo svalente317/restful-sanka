@@ -9,22 +9,17 @@ serializable class PrimaryKeyPostState {
 }
 
 /**
- * Post to this worker to generate an identifier which is likely to be unique
+ * Use this worker to generate an identifier which is likely to be unique
  * over the lifetime of this instance of this server.
  */
-class PrimaryKeyWorker extends RestWorkerWithSave {
+class PrimaryKeyWorker extends RestWorker {
     const WORKER_PATH = "/primary-key";
     const THIRTY_TWO = "abcdefghijklmnopqrstuvwxyz234567";
 
     private boolean have_bits;
     private int bits;
 
-    void onPost(RestOperation op) {
-        var postState = new PrimaryKeyPostState();
-        if (!op.parseBody(postState)) {
-            op.setErrorBody("invalid body");
-            return;
-        }
+    void onGet(RestOperation op) {
         var id = Random.randomUInt();
         var data = new byte[8];
         for (var y = 0; y < 6; y++) {
@@ -41,6 +36,7 @@ class PrimaryKeyWorker extends RestWorkerWithSave {
         this.bits = this.bits >> 5;
         this.have_bits = !this.have_bits;
 
+        var postState = new PrimaryKeyPostState();
         postState.key = new String(data);
         op.setBody(postState);
     }

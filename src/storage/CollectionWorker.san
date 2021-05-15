@@ -202,11 +202,12 @@ abstract class CollectionWorker extends RestWorker {
      * Use PrimaryKeyWorker.
      */
     private String generatePrimaryKey() {
-        var state = new PrimaryKeyPostState();
-        var op = send(Http.POST, PrimaryKeyWorker.WORKER_PATH, state);
-        if (op.success()) {
-            op.parseBody(state);
+        var op = send(Http.GET, PrimaryKeyWorker.WORKER_PATH, null);
+        if (!op.success()) {
+            return null;
         }
+        var state = new PrimaryKeyPostState();
+        op.parseBody(state);
         return state.key;
     }
 }
