@@ -12,11 +12,11 @@ class LockState {
  */
 class LockManager {
     private Mutex mutex;
-    private LockState[String] locks;
+    private map[String]LockState locks;
 
     LockManager() {
         this.mutex = new Mutex();
-        this.locks = new LockState[class String];
+        this.locks = new map[String]LockState;
     }
 
     boolean lock(String key, boolean write) {

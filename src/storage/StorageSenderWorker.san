@@ -110,7 +110,7 @@ class StorageSenderWorker extends RestWorker {
      * Send the given resource to our peer. Do not return until the post
      * has been accepted.
      */
-    private void sendToPeerWithRetry(byte[] body) {
+    private void sendToPeerWithRetry([]byte body) {
         var sleepTime = 1;
         while (true) {
             var sender = new HttpClient();
@@ -131,7 +131,7 @@ class StorageSenderWorker extends RestWorker {
         }
     }
 
-    private byte[] getResourceFromStorage(String storageKey) {
+    private []byte getResourceFromStorage(String storageKey) {
         var storageOp = new RestOperation();
         storageOp.method = Http.GET;
         storageOp.path = StorageWorker.WORKER_PATH;

@@ -3,7 +3,7 @@ package sanka.http;
 
 class Query {
     private String text;
-    private String[String] map;
+    private map[String]String kvs;
 
     /**
      * Create a Query object from a URL query component like
@@ -17,18 +17,18 @@ class Query {
      * Create a container for key-value pairs to be added.
      */
     Query() {
-        this.map = new String[class String];
+        this.kvs = new map[String]String;
     }
     
     /**
      * Get the query as a collection of decoded keys and values.
      */
-    String[String] getMap() {
-        if (this.map != null || this.text == null) {
-            return this.map;
+    map[String]String getMap() {
+        if (this.kvs != null || this.text == null) {
+            return this.kvs;
         }
-        // Parse this.text -> this.map.
-        this.map = new String[class String];
+        // Parse this.text -> this.kvs.
+        this.kvs = new map[String]String;
         var idx = 0;
         while (true) {
             var start = idx;
@@ -47,13 +47,13 @@ class Query {
             var value = this.text.substring(start, idx);
             key = URLEncoder.get().decode(key);
             value = URLEncoder.get().decode(value);
-            this.map[key] = value;
+            this.kvs[key] = value;
             if (this.text[idx] == 0) {
                 break;
             }
             idx++;
         }
-        return this.map;
+        return this.kvs;
     }
 
     /**
@@ -68,12 +68,12 @@ class Query {
      * where the keys and values are URL encoded.
      */
     String encode() {
-        if (this.map == null) {
+        if (this.kvs == null) {
             return this.text;
         }
         var encoder = URLEncoder.get();
         var text = "";
-        for (var key, value : this.map) {
+        for (var key, value : this.kvs) {
             text = (text + encoder.encode(key) + "=" +
                     encoder.encode(value) + "&");
         }

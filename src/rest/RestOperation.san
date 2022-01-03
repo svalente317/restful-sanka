@@ -42,18 +42,18 @@ class RestOperation {
     String path;
     String key;
     Query query;
-    private byte[] body;
+    private []byte body;
     private JsonObject jsonBody;
     int status;
     String source;
-    String[String] headers;
-    Cookie[] cookies;
+    map[String]String headers;
+    []Cookie cookies;
 
     boolean success() {
         return this.status == Http.OK;
     }
 
-    void setRawBody(byte[] body) {
+    void setRawBody([]byte body) {
         this.body = body;
         this.jsonBody = null;
     }
@@ -76,7 +76,7 @@ class RestOperation {
         setRawBody(subOp.getBody());
     }
 
-    byte[] getBody() {
+    []byte getBody() {
         if (this.body == null && this.jsonBody != null) {
             this.body = this.jsonBody.toString().toByteArray();
         }
@@ -121,14 +121,14 @@ class RestOperation {
 
     void addHeader(String name, String value) {
         if (this.headers == null) {
-            this.headers = new String[class String];
+            this.headers = new map[String]String;
         }
         this.headers[name] = value;
     }
 
     void addCookie(Cookie cookie) {
         if (this.cookies == null) {
-            this.cookies = new Cookie[]{ cookie };
+            this.cookies = new []Cookie{ cookie };
         } else {
             this.cookies.add(cookie);
         }

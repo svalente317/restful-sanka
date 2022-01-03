@@ -43,7 +43,7 @@ class DocumentContentWorker extends RestWorker {
             op.setErrorBody(WORKER_PATH + ": " + System.strerror(status));
             return;
         }
-        op.setRawBody(new byte[0]);
+        op.setRawBody(new []byte);
     }
 
     void onGet(RestOperation op) {
@@ -60,7 +60,7 @@ class DocumentContentWorker extends RestWorker {
         var state = new DocumentState();
         subOp.parseBody(state);
         if (state.filename == null) {
-            op.setRawBody(new byte[0]);
+            op.setRawBody(new []byte);
             return;
         }
         var reader = new FileReader();

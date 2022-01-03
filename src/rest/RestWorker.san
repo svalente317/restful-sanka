@@ -31,8 +31,8 @@ abstract class RestWorker {
         return false;
     }
 
-    String[] getDependencies() {
-        return new String[0];
+    []String getDependencies() {
+        return new []String;
     }
 
     RestProcessor getProcessor() {

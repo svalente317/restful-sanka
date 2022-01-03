@@ -14,8 +14,8 @@ import sanka.rest.RestOperation;
 class StorageReceiverWorker extends RestWorker {
     const WORKER_PATH = "/storage-receiver";
 
-    String[] getDependencies() {
-        return new String[]{ StorageWorker.WORKER_PATH };
+    []String getDependencies() {
+        return { StorageWorker.WORKER_PATH };
     }
 
     void onPost(RestOperation op) {

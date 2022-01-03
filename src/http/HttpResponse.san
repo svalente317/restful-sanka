@@ -7,7 +7,7 @@ package sanka.http;
  */
 class HttpResponse {
     int status;
-    String[String] headers;
-    Cookie[] cookies;
-    byte[] body;
+    map[String]String headers;
+    []Cookie cookies;
+    []byte body;
 }

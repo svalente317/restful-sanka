@@ -8,11 +8,11 @@ class HttpRequest {
     String method;
     String uri;
     String httpVersion;
-    String[String] headers;
-    String[String] cookies;
-    byte[] body;
+    map[String]String headers;
+    map[String]String cookies;
+    []byte body;
 
     HttpRequest() {
-        this.headers = new String[class String];
+        this.headers = new map[String]String;
     }
 }

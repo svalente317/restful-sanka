@@ -9,8 +9,8 @@ import sanka.rest.RestOperation;
 
 abstract class RestWorkerWithSave extends RestWorker {
 
-    String[] getDependencies() {
-        return new String[]{ StorageWorker.WORKER_PATH };
+    []String getDependencies() {
+        return { StorageWorker.WORKER_PATH };
     }
 
     boolean load(SerializableObject object) {

@@ -3,12 +3,12 @@ package sanka.http;
 
 singleton class URLEncoder {
 
-    private boolean[] valid;
-    private boolean[] reserved;
+    private []boolean valid;
+    private []boolean reserved;
     
     URLEncoder() {
-        this.valid = new boolean[128];
-        this.reserved = new boolean[128];
+        this.valid = new []boolean(128);
+        this.reserved = new []boolean(128);
         for (var ch = 'A'; ch <= 'Z'; ch++) {
             this.valid[ch] = true;
         }
@@ -50,19 +50,19 @@ singleton class URLEncoder {
      * Encode a string to be a key or value in a URL query component.
      */
     String encode(String str) {
-        var out = new byte[0];
+        var out = new []byte;
         var count = 0;
         for (var ch : str) {
             if (ch > 0 && ch < 128 && this.valid[ch]) {
                 out.add(ch);
             } else {
                 out.add('%');
-                var value = new int(ch);
+                var value = (int)ch;
                 if (value < 0) {
                     value = 256 + value;
                 }
-                var hi = new byte(value >> 4);
-                var lo = new byte(value & 15);
+                var hi = (byte)(value >> 4);
+                var lo = (byte)(value & 15);
                 hi = (hi < 10 ? '0' + hi : 'A' + hi-10);
                 lo = (lo < 10 ? '0' + lo : 'A' + lo-10);
                 out.add(hi);
@@ -77,7 +77,7 @@ singleton class URLEncoder {
      * Decode a string key or value from a URL query component.
      */
     String decode(String str) {
-        var out = new byte[0];
+        var out = new []byte;
         var length = str.length();
         var count = 0;
         for (var idx = 0; idx < length; idx++) {
@@ -97,7 +97,7 @@ singleton class URLEncoder {
                 if (lo < 0 || hi < 0) {
                     return null;
                 }
-                out.add(new byte(hi << 4 | lo));
+                out.add((byte)(hi << 4 | lo));
             } else if (ch == '+') {
                 // Special-case decode plus to space.
                 count++;

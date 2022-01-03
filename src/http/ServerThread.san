@@ -37,7 +37,7 @@ class ServerThread {
             var value = request.headers[Http.CONTENT_LENGTH];
             if (value != null) {
                 var contentLength = System.parseLong(value);
-                request.body = new byte[contentLength];
+                request.body = new []byte(contentLength);
                 if (lineReader.read(request.body) < contentLength) {
                     System.println("bad body");
                     break;

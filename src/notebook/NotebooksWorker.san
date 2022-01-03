@@ -11,12 +11,12 @@ serializable class NotebookState {
     String name;
     long created;
     long lastUpdate;
-    String[] documentIds;
+    []String documentIds;
     String insertAfter;
 }
 
 serializable class NotebookCollectionState {
-    NotebookState[] items;
+    []NotebookState items;
 }
 
 class NotebooksWorker extends CollectionWorker {
@@ -44,7 +44,7 @@ class NotebooksWorker extends CollectionWorker {
         state.userId = op.userId;
         state.created = System.currentTimeMillis();
         state.lastUpdate = state.created;
-        state.documentIds = new String[]{ id };
+        state.documentIds = { id };
         op.setBody(state);
         return null;
     }
@@ -83,7 +83,7 @@ class NotebooksWorker extends CollectionWorker {
             op.setBody(state);
             return null;
         }
-        var currentIds = new boolean[class String];
+        var currentIds = new map[String]boolean;
         for (var documentId : current.documentIds) {
             currentIds[documentId] = true;
         }
@@ -109,8 +109,8 @@ class NotebooksWorker extends CollectionWorker {
         return null;
     }
 
-    private String[] insertAfter(String[] arr, String target) {
-        var newarr = new String[arr.length+1];
+    private []String insertAfter([]String arr, String target) {
+        var newarr = new []String(arr.length+1);
         var found = false;
         var idx = 0;
         for (var item : arr) {

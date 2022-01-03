@@ -6,10 +6,10 @@ import sanka.rest.RestClient;
 import sanka.rest.RestOperation;
 
 class RestRequestSender {
-    private Channel[String] hostChannelMap;
+    private map[String]Channel hostChannelMap;
 
     RestRequestSender() {
-        this.hostChannelMap = new Channel[class String];
+        this.hostChannelMap = new map[String]Channel;
     }
 
     /**

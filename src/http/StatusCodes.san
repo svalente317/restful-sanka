@@ -3,10 +3,10 @@ package sanka.http;
 
 singleton class StatusCodes {
 
-    private String[int] codeMap;
+    private map[int]String codeMap;
     
     StatusCodes() {
-        this.codeMap = new String[class int]{
+        this.codeMap = {
             100: "Continue",
             101: "Switching Protocols",
             102: "Processing",

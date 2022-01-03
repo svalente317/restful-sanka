@@ -11,7 +11,7 @@ class HttpClient {
     String httpVersion;
     int status;
     String reasonPhrase;
-    String[String] headers;
+    map[String]String headers;
 
     // For reading the body after the headers.
     private LineReader reader;
@@ -27,7 +27,7 @@ class HttpClient {
      * @return true if the connection was established, and the request was
      *         sent, and valid response headers were received.
      */
-    boolean send(URL url, String method, byte[] body) {
+    boolean send(URL url, String method, []byte body) {
         close();
         if (url.scheme != "http" || url.hostname == null) {
             return false;
@@ -63,7 +63,7 @@ class HttpClient {
         }
         this.httpVersion = statusLine[0];
         this.status = System.parseInt(statusLine[1]);
-        this.headers = new String[class String];
+        this.headers = new map[String]String;
         while (true) {
             var header = parser.parseHeader();
             if (header == null || header.length == 0) {

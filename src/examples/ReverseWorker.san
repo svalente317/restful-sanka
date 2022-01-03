@@ -19,8 +19,8 @@ import sanka.rest.RestOperation;
 class ReverseWorker extends RestWorker {
     const WORKER_PATH = "/reverse";
 
-    String[] getDependencies() {
-        return new String[]{ EchoWorker.WORKER_PATH };
+    []String getDependencies() {
+        return { EchoWorker.WORKER_PATH };
     }
 
     void onGet(RestOperation op) {

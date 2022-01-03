@@ -29,7 +29,7 @@ class PaxosStorageWorker extends RestWorker {
     const COLLECTION = ".collection";
     const TRUE = "true";
 
-    private URL[] peerURLs;
+    private []URL peerURLs;
     private RestRequestSender requestSender;
 
     void onStart() {
@@ -37,7 +37,7 @@ class PaxosStorageWorker extends RestWorker {
         if (element != null) {
             var array = element.getAsArray();
             if (array != null) {
-                this.peerURLs = new URL[0];
+                this.peerURLs = new []URL;
                 for (var elem : array) {
                     var text = elem.getAsString();
                     if (text != null) {
@@ -96,7 +96,7 @@ class PaxosStorageWorker extends RestWorker {
         var localOp = send(Http.POST, PaxosVoterWorker.WORKER_PATH, request);
         responseChannel.push(localOp);
 
-        var nonceMap = new GenerationCount[class String];
+        var nonceMap = new map[String]GenerationCount;
         var majority = 1 + (total >> 1);
         var responseCount = 0;
         var failureCount = 0;
@@ -145,7 +145,7 @@ class PaxosStorageWorker extends RestWorker {
         phase2(op, request.nonce);
     }
 
-    private boolean possibleCommit(int generation, GenerationCount[String] nonceMap,
+    private boolean possibleCommit(int generation, map[String]GenerationCount nonceMap,
                                    int failureCount, int majority) {
         for (var nonce, gc : nonceMap) {
             if (failureCount + gc.count >= majority && gc.generation >= generation) {
@@ -237,7 +237,7 @@ class PaxosStorageWorker extends RestWorker {
             return onGetCollection(op, total, responseChannel);
         }
 
-        var nonceMap = new int[class String];
+        var nonceMap = new map[String]int;
         var majority = 1 + (total >> 1);
         var responseCount = 0;
         var rejected = 0;
@@ -292,10 +292,10 @@ class PaxosStorageWorker extends RestWorker {
      * according to the majority of peers.
      */
     private void onGetCollection(RestOperation op, int total, Channel responseChannel) {
-        var nonceMap = new int[class String];
+        var nonceMap = new map[String]int;
         var majority = 1 + (total >> 1);
         var remaining = total;
-        var resources = new JsonElement[0];
+        var resources = new []JsonElement;
         while (true) {
             var response = (RestOperation) responseChannel.pop();
             if (response == null) {
@@ -338,7 +338,7 @@ class PaxosStorageWorker extends RestWorker {
         op.setJsonBody(wrapper);
     }
 
-    private boolean isCollectionFinished(int[String] nonceMap, int remaining, int majority) {
+    private boolean isCollectionFinished(map[String]int nonceMap, int remaining, int majority) {
         if (remaining == 0) {
             return true;
         }

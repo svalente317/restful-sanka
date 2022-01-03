@@ -21,13 +21,13 @@ class HttpParser {
      *
      * @return [method, uri, httpVersion]
      */
-    String[] parseRequestLine() {
+    []String parseRequestLine() {
         var line = this.lineReader.readline();
         if (line == null) {
             return null;
         }
         var lineLength = line.length();
-        var result = new String[3];
+        var result = new []String(3);
         var idx = 0;
         var len = getTokenLength(line, idx, SEPARATORS);
         if (len == idx || len == lineLength) {
@@ -93,7 +93,7 @@ class HttpParser {
      *
      * @return [key, value]
      */
-    String[] parseHeader() {
+    []String parseHeader() {
         var line = this.nextLine;
         this.nextLine = null;
         if (line == null) {
@@ -104,9 +104,9 @@ class HttpParser {
         }
         var lineLength = line.length();
         if (lineLength == 0) {
-            return new String[0];
+            return new []String;
         }
-        var result = new String[2];
+        var result = new []String(2);
         var len = getTokenLength(line, 0, SEPARATORS);
         if (len == 0 || len == lineLength) {
             return null;
@@ -155,12 +155,12 @@ class HttpParser {
      *
      * @return [httpVersion, statusCode, reasonPhrase]
      */
-    String[] parseStatusLine() {
+    []String parseStatusLine() {
         var line = this.lineReader.readline();
         if (line == null) {
             return null;
         }
-        var result = new String[3];
+        var result = new []String(3);
         var idx = line.indexOf(' ');
         if (idx <= 0) {
             return null;

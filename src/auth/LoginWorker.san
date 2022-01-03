@@ -56,7 +56,7 @@ class LoginWorker extends RestWorker {
         var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
             "abcdefghijklmnopqrstuvwxyz0123456789-";
         var length = alphabet.length();
-        var data = new byte[22];
+        var data = new []byte(22);
         for (var idx = 0; idx < data.length; idx++) {
             data[idx] = alphabet[System.random(length)];
         }

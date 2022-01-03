@@ -136,7 +136,7 @@ class StorageWorker extends RestWorker {
     /**
      * Read the object stored under the given key.
      */
-    byte[] readBytes(String storageKey) {
+    []byte readBytes(String storageKey) {
         var directory = new File(this.rootDirectory, storageKey);
         var file = new File(directory, RESOURCE_FILENAME);
         var reader = new FileReader();
@@ -149,7 +149,7 @@ class StorageWorker extends RestWorker {
     /**
      * Write the object to storage under the given key.
      */
-    void writeBytes(String storageKey, byte[] bytes) {
+    void writeBytes(String storageKey, []byte bytes) {
         var file = new File(this.stageDirectory, Random.randomUuid());
         var writer = new FileWriter();
         if (writer.open(file.getPath()) != 0) {
@@ -242,13 +242,13 @@ class StorageWorker extends RestWorker {
         var directory = new File(this.rootDirectory, storageKey);
         var filenames = directory.list();
         if (filenames == null) {
-            filenames = new String[0];
+            filenames = new []String;
         }
 
         // Lock the resources. I believe that this is safe from deadlock
         // because these locks are shared, and because the worker never holds
         // any other locks while it holds a single exclusive lock on anything.
-        var resourceKeys = new String[filenames.length];
+        var resourceKeys = new []String(filenames.length);
         var idx = 0;
         for (var filename : filenames) {
             var resourceKey = storageKey + "/" + filename;
@@ -261,7 +261,7 @@ class StorageWorker extends RestWorker {
         System.sort(resourceKeys);
 
         // Read and unlock the resources.
-        var collection = new String[resourceKeys.length];
+        var collection = new []String(resourceKeys.length);
         var totalSize = 0;
         idx = 0;
         for (var resourceKey : resourceKeys) {
@@ -303,7 +303,7 @@ class StorageWorker extends RestWorker {
      * @return true if the given object contains all of the queried fields
      *         with all of the queried values.
      */
-    private boolean filterMatch(JsonObject object, String[String] queryMap) {
+    private boolean filterMatch(JsonObject object, map[String]String queryMap) {
         for (var key, value : queryMap) {
             var element = object.get(key);
             if (element == null) {

@@ -33,7 +33,7 @@ class RestfulSanka {
     const USAGE = "Usage: restful-sanka [-p port] [-d storage]";
     const DEFAULT_PORT = 8888;
 
-    static int main(String[] argv) {
+    static int main([]String argv) {
         Random.seedRandom();
         var port = 0;
         var storageRoot = null;
