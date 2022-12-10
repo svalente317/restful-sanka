@@ -23,8 +23,8 @@ class SelectNotebookWorker extends RestWorker {
         "</body>" +
         "</html>";
 
-    []String getDependencies() {
-        return new []String{ NotebooksWorker.WORKER_PATH,
+    String[] getDependencies() {
+        return new String[]{ NotebooksWorker.WORKER_PATH,
                              ViewNotebookWorker.WORKER_PATH };
     }
 

@@ -47,7 +47,7 @@ class Iterator {
         c__stmt "return string";
     }
 
-    []byte value() {
+    byte[] value() {
         c__stmt "size_t size = 0";
         c__stmt "char *data = leveldb_iter_value(this->iter, &size)";
         c__stmt "if (data == NULL) return NULL";

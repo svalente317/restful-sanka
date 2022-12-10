@@ -21,7 +21,7 @@ class PrimaryKeyWorker extends RestWorker {
 
     void onGet(RestOperation op) {
         var id = Random.randomUInt();
-        var data = new []byte(8);
+        var data = new byte[](8);
         for (var y = 0; y < 6; y++) {
             var value = id & 31;
             data[y] = THIRTY_TWO[value];

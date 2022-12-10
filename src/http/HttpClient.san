@@ -27,7 +27,7 @@ class HttpClient {
      * @return true if the connection was established, and the request was
      *         sent, and valid response headers were received.
      */
-    boolean send(URL url, String method, []byte body) {
+    boolean send(URL url, String method, byte[] body) {
         close();
         if (url.scheme != "http" || url.hostname == null) {
             return false;

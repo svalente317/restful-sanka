@@ -45,11 +45,11 @@ class CookieProcessor {
     /**
      * Unparse the array of Cookies into an array of Set-Cookie headers.
      */
-    static []String unparseCookies([]Cookie cookies) {
+    static String[] unparseCookies(Cookie[] cookies) {
         if (cookies == null) {
             return null;
         }
-        var headers = new []String(cookies.length);
+        var headers = new String[](cookies.length);
         for (var idx = 0; idx < cookies.length; idx++) {
             var cookie = cookies[idx];
             var value = cookie.name + "=" + cookie.value;

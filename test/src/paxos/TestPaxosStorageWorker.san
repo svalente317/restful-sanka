@@ -24,12 +24,12 @@ class TestPaxosStorageWorker extends BaseRestTest {
      */
     void testReplicationWithConcurrency() {
 
-        var servers = new Server[3];
-        var directories = new String[3];
+        var servers = new Server[](3);
+        var directories = new String[](3);
         for (var idx = 0; idx < 3; idx++) {
             var port = BASE_PORT + idx;
             var configuration = new JsonObject();
-            var peers = new JsonElement[0];
+            var peers = new JsonElement[];
             for (var other = 0; other < 3; other++) {
                 if (idx != other) {
                     var addr = "http://localhost:" + (BASE_PORT+other);
@@ -52,7 +52,7 @@ class TestPaxosStorageWorker extends BaseRestTest {
 
         var storageKey = "/a/b/c";
         var requestSender = new RestRequestSender();
-        var stats = new int[3];
+        var stats = new int[](3);
         for (var generation = 1; generation <= 300; generation++) {
             System.println("--- GENERATION " + generation + " ---");
             var responseChannel = new Channel(3);

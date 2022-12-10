@@ -11,21 +11,21 @@ import sanka.lang.Mutex;
  * proof of concept.
  */
 class StorageCache {
-    private map[String][]byte data;
+    private map[String]byte[] data;
     private Mutex mutex;
 
     StorageCache() {
-        this.data = new map[String][]byte;
+        this.data = new map[String]byte[];
         this.mutex = new Mutex();
     }
 
-    void put(String key, []byte value) {
+    void put(String key, byte[] value) {
         this.mutex.lock();
         this.data[key] = value;
         this.mutex.unlock();
     }
 
-    []byte remove(String key) {
+    byte[] remove(String key) {
         this.mutex.lock();
         var value = this.data[key];
         if (value != null) {

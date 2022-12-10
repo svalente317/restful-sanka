@@ -2,7 +2,7 @@
 package sanka.leveldb;
 
 class Results {
-    []byte value;
+    byte[] value;
     String error;
 }
 
@@ -31,7 +31,7 @@ class LevelDB {
         c__stmt "this->db = NULL";
     }
 
-    String put(String key, []byte value) {
+    String put(String key, byte[] value) {
         c__stmt "char *error = NULL";
         c__stmt "leveldb_put(this->db, this->writeoptions, key, strlen(key), value->data, value->length, &error)";
         c__stmt "return LevelDB__copyAndFree(error)";
@@ -43,7 +43,7 @@ class LevelDB {
         c__stmt "return LevelDB__copyAndFree(error)";
     }
 
-    []byte get(String key) {
+    byte[] get(String key) {
         c__stmt "char *error = NULL";
         c__stmt "size_t size = 0";
         c__stmt "char *data = leveldb_get(this->db, this->readoptions, key, strlen(key), &size, &error)";

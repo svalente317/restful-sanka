@@ -8,6 +8,6 @@ package sanka.http;
 class HttpResponse {
     int status;
     map[String]String headers;
-    []Cookie cookies;
-    []byte body;
+    Cookie[] cookies;
+    byte[] body;
 }

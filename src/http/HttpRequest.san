@@ -10,7 +10,7 @@ class HttpRequest {
     String httpVersion;
     map[String]String headers;
     map[String]String cookies;
-    []byte body;
+    byte[] body;
 
     HttpRequest() {
         this.headers = new map[String]String;

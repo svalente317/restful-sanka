@@ -20,7 +20,7 @@ class ViewNotebookWorker extends RestWorker {
     private String document;
     private long cacheLastModified;
 
-    []String getDependencies() {
+    String[] getDependencies() {
         return { NotebooksWorker.WORKER_PATH };
     }
 

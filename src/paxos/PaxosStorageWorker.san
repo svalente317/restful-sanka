@@ -29,7 +29,7 @@ class PaxosStorageWorker extends RestWorker {
     const COLLECTION = ".collection";
     const TRUE = "true";
 
-    private []URL peerURLs;
+    private URL[] peerURLs;
     private RestRequestSender requestSender;
 
     void onStart() {
@@ -37,7 +37,7 @@ class PaxosStorageWorker extends RestWorker {
         if (element != null) {
             var array = element.getAsArray();
             if (array != null) {
-                this.peerURLs = new []URL;
+                this.peerURLs = new URL[];
                 for (var elem : array) {
                     var text = elem.getAsString();
                     if (text != null) {
@@ -295,7 +295,7 @@ class PaxosStorageWorker extends RestWorker {
         var nonceMap = new map[String]int;
         var majority = 1 + (total >> 1);
         var remaining = total;
-        var resources = new []JsonElement;
+        var resources = new JsonElement[];
         while (true) {
             var response = (RestOperation) responseChannel.pop();
             if (response == null) {

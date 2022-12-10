@@ -3,12 +3,12 @@ package sanka.http;
 
 singleton class URLEncoder {
 
-    private []boolean valid;
-    private []boolean reserved;
+    private boolean[] valid;
+    private boolean[] reserved;
     
     URLEncoder() {
-        this.valid = new []boolean(128);
-        this.reserved = new []boolean(128);
+        this.valid = new boolean[](128);
+        this.reserved = new boolean[](128);
         for (var ch = 'A'; ch <= 'Z'; ch++) {
             this.valid[ch] = true;
         }
@@ -50,7 +50,7 @@ singleton class URLEncoder {
      * Encode a string to be a key or value in a URL query component.
      */
     String encode(String str) {
-        var out = new []byte;
+        var out = new byte[];
         var count = 0;
         for (var ch : str) {
             if (ch > 0 && ch < 128 && this.valid[ch]) {
@@ -77,7 +77,7 @@ singleton class URLEncoder {
      * Decode a string key or value from a URL query component.
      */
     String decode(String str) {
-        var out = new []byte;
+        var out = new byte[];
         var length = str.length();
         var count = 0;
         for (var idx = 0; idx < length; idx++) {

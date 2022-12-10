@@ -28,7 +28,7 @@ class RestClient {
         if (value != null) {
             var contentLength = System.parseLong(value);
             if (contentLength > 0) {
-                var body = new []byte(contentLength);
+                var body = new byte[](contentLength);
                 var length = client.getReader().read(body);
                 body.setLength(length);
                 op.setRawBody(body);

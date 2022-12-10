@@ -27,13 +27,13 @@ class RestProcessor {
     private JsonObject configuration;
     private map[String]RestWorker workerMap;
     private map[String]boolean isStarted;
-    private []HttpAuthenticator authenticators;
+    private HttpAuthenticator[] authenticators;
 
     RestProcessor(JsonObject configuration) {
         this.configuration = configuration;
         this.workerMap = new map[String]RestWorker;
         this.isStarted = new map[String]boolean;
-        this.authenticators = new []HttpAuthenticator;
+        this.authenticators = new HttpAuthenticator[];
         this.instanceName = getConfig(INSTANCE_NAME_PREF);
     }
 
@@ -81,7 +81,7 @@ class RestProcessor {
         }
     }
 
-    boolean allStarted([]String deps) {
+    boolean allStarted(String[] deps) {
         if (deps != null) {
             for (var path : deps) {
                 if (!this.isStarted[path]) {

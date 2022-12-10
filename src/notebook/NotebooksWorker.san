@@ -11,12 +11,12 @@ serializable class NotebookState {
     String name;
     long created;
     long lastUpdate;
-    []String documentIds;
+    String[] documentIds;
     String insertAfter;
 }
 
 serializable class NotebookCollectionState {
-    []NotebookState items;
+    NotebookState[] items;
 }
 
 class NotebooksWorker extends CollectionWorker {
@@ -109,8 +109,8 @@ class NotebooksWorker extends CollectionWorker {
         return null;
     }
 
-    private []String insertAfter([]String arr, String target) {
-        var newarr = new []String(arr.length+1);
+    private String[] insertAfter(String[] arr, String target) {
+        var newarr = new String[](arr.length+1);
         var found = false;
         var idx = 0;
         for (var item : arr) {

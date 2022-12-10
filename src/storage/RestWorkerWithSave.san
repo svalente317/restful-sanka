@@ -9,7 +9,7 @@ import sanka.rest.RestOperation;
 
 abstract class RestWorkerWithSave extends RestWorker {
 
-    []String getDependencies() {
+    String[] getDependencies() {
         return { StorageWorker.WORKER_PATH };
     }
 
